@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>💰 Single-Page Wealth Tracker (INR)</title>
+    <!-- Load Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Chart.js via CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <!-- Custom Tailwind Configuration for Corporate Blue Theme -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary-indigo': '#3F51B5', // Primary Brand Color
+                        'positive-green': '#4CAF50', // Success/Positive
+                        'negative-red': '#F44336',  // Alert/Negative
+                        'surface': '#FFFFFF',
+                        'canvas': '#FAFAFA', // Background
+                        'text-main': '#212121',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Load Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
+    <style>
+        /* Basic scroll behavior and background */
+        body {
+            background-color: #FAFAFA; /* canvas */
+            color: #212121; /* text-main */
+            min-height: 100vh;
+        }
+        /* Custom scrollbar styling for better aesthetics */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #ccc;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #999;
+        }
+    </style>
+</head>
+<body class="font-sans">
+
+    <!-- Header -->
+    <header class="sticky top-0 z-10 bg-surface shadow-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+            <h1 class="text-2xl font-extrabold text-primary-indigo">
+                💰 Consolidated Wealth Tracker (₹)
+            </h1>
+            <button id="clearDataBtn" class="bg-negative-red text-white py-2 px-4 rounded-lg text-sm font-medium hover:bg-red-700 transition duration-300 shadow-md">
+                Clear All Data
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
+
+        <!-- ### SECTION 1: DASHBOARD / OVERVIEW ### -->
+        <div id="dashboard" class="space-y-6">
+            <h2 class="text-3xl font-bold border-b pb-2 text-text-main">Financial Overview</h2>
+
+            <!-- Net Worth Card (Prominent Feature) -->
+            <div class="bg-surface rounded-xl p-6 shadow-lg transition-shadow duration-300 hover:shadow-xl">
+                <h3 class="text-xl font-semibold mb-2 text-text-main">Current Net Worth</h3>
+                <p id="netWorthValue" class="text-5xl font-extrabold text-primary-indigo transition-colors duration-300">₹0.00</p>
+                <p class="text-gray-500 mt-1">Total Assets (Bank + Stocks) minus Total Liabilities.</p>
+            </div>
+
+            <!-- Summary Cards Grid -->
+            <div id="summaryCards" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                <!-- Cards will be injected here by JS -->
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 pt-4">
+                <!-- Expense Visualization Chart -->
+                <div class="bg-surface rounded-xl p-6 shadow-lg">
+                    <h3 class="text-xl font-semibold mb-4 text-text-main">Expenses by Category</h3>
+                    <div class="h-64 md:h-80 flex items-center justify-center">
+                        <canvas id="expenseChart"></canvas>
+                    </div>
+                    <p id="expenseChartMessage" class="text-center text-gray-500 mt-4 hidden">No expenses recorded yet.</p>
+                </div>
+
+                <!-- Stock Portfolio Visualization Chart -->
+                <div class="bg-surface rounded-xl p-6 shadow-lg">
+                    <h3 class="text-xl font-semibold mb-4 text-text-main">Stock Portfolio Composition</h3>
+                    <div class="h-64 md:h-80 flex items-center justify-center">
+                        <canvas id="stockChart"></canvas>
+                    </div>
+                    <p id="stockChartMessage" class="text-center text-gray-500 mt-4 hidden">No stocks added yet.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- --- Divider --- -->
+        <hr class="border-gray-300 my-8">
+
+        <!-- ### SECTION 2: CATEGORY MANAGEMENT ### -->
+        <div id="category-management" class="space-y-6">
+            <h2 class="text-3xl font-bold border-b pb-2 text-text-main">Custom Category Management</h2>
+
+            <!-- Category Input Form -->
+            <div class="bg-surface rounded-xl p-6 shadow-lg">
+                <h3 class="text-xl font-semibold mb-4 text-text-main">Add New Custom Category</h3>
+                <form id="categoryForm" class="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
+                    <div class="sm:col-span-2">
+                        <label for="newCategoryName" class="block text-sm font-medium text-gray-700">New Category Name</label>
+                        <input type="text" id="newCategoryName" placeholder="e.g., Pet Care, Rental Income" required class="mt-1 w-full p-2 border border-gray-300 rounded-lg focus:ring-primary-indigo focus:border-primary-indigo shadow-sm">
+                    </div>
+                    <div>
+                        <label for="categoryType" class="block text-sm font-medium text-gray-700">Category Type</label>
+                        <select id="categoryType" required class="mt-1 w-full p-2 border border-gray-300 rounded-lg focus:ring-primary-indigo focus:border-primary-indigo shadow-sm appearance-none">
+                            <option value="expense">Expense</option>
+                            <option value="income">Income</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="w-full bg-positive-green text-white py-2.5 px-6 rounded-lg font-semibold hover:bg-green-700 transition duration-300 shadow-md">
+                        Add Category
+                    </button>
+                </form>
+            </div>
+
+            <!-- Current Categories List -->
+            <div id="categoryListDisplay" class="bg-surface rounded-xl p-6 shadow-lg">
+                <h3 class="text-xl font-semibold mb-4 text-text-main">Current Categories</h3>
+                <div id="expenseCategoryList" class="mb-4">
+                    <h4 class="text-lg font-medium text-negative-red">Expense Categories</h4>
+                    <!-- Expense categories displayed here -->
+                </div>
+                <div id="incomeCategoryList">
+                    <h4 class="text-lg font-medium text-positive-green">Income Categories</h4>
+                    <!-- Income categories displayed here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- --- Divider --- -->
+        <hr class="border-gray-300 my-8">
+
+        <!-- ### SECTION 3: TRANSACTIONS ### -->
+        <div id="transactions" class="space-y-6">
+            <h2 class="text-3xl font-bold border-b pb-2 text-text-main">Income & Expense Tracker</h2>
+
+            <!-- Transaction Input Form -->
+            <div class="bg-surface rounded-xl p-6 shadow-lg">
+                <h3 class="text-xl font-semibold mb-4 text-text-main">Add New Transaction</h3>
+                <form id="transactionForm" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+                    <div class="lg:col-span-1">
+                        <label for="transDate" class="block text-sm font-medium text-gray-700">Date</label>
+                        <input type="date" id="transDate" required class="mt-1 w-full p-2 border border-gray-300 rounded-lg focus:ring-primary-indigo focus:border-primary-indigo shadow-sm">
+                    </div>
+                    <div class="lg:col-span-1">
+                        <label for="transType" class="block text-sm font-medium text-gray-700">Type</label>
+                        <select id="transType" required class="mt-1 w-full p-2 border border-gray-300 rounded-lg focus:ring-primary-indigo focus:border-primary-indigo shadow-sm appearance-none">
+                            <option value="Income">Income</option>
+                            <option value="Expense">Expense</option>
+                        </select>
+                    </div>
+                    <div class="lg:col-span-1">
+                        <label for="transCategory" class="block text-sm font-medium text-gray-700">Category</label>
+                        <select id="transCategory" required class="mt-1 w-full p-2 border border-gray-300 rounded-lg focus:ring-primary-indigo focus:border-primary-indigo shadow-sm appearance-none">
+                            <!-- Options updated by JS for Income/Expense -->
+                        </select>
+                    </div>
+                    <div class="lg:col-span-2">
+                        <label for="transDescription" class="block text-sm font-medium text-gray-700">Description</label>
+                        <input type="text" id="transDescription" placeholder="e.g., Salary, Groceries, Rent" required class="mt-1 w-full p-2 border border-gray-300 rounded-lg focus:ring-primary-indigo focus:border-primary-indigo shadow-sm">
+                    </div>
+                    <div class="lg:col-span-1">
+                        <label for="transAmount" class="block text-sm font-medium text-gray-700">Amount (₹)</label>
+                        <input type="number" step="0.01" id="transAmount" required min="0.01" class="mt-1 w-full p-2 border border-gray-300 rounded-lg focus:ring-primary-indigo focus:border-primary-indigo shadow-sm">
+                    </div>
+                    <div class="lg:col-span-6 flex justify-end">
+                        <button type="submit" class="w-full sm:w-auto bg-primary-indigo text-white py-2 px-6 rounded-lg font-semibold hover:bg-indigo-700 transition duration-300 shadow-md">
+                            Add Transaction
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Transaction List -->
+            <div class="bg-surface rounded-xl p-6 shadow-lg">
+                <h3 class="text-xl font-semibold mb-4 text-text-main">Recent Transactions</h3>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                <th class="px-6 py-3"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="transactionList" class="bg-white divide-y divide-gray-200">
+                            <!-- Transactions will be injected here by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- --- Divider --- -->
+        <hr class="border-gray-300 my-8">
+
+        <!-- ### SECTION 4: BUDGET ### -->
+        <div id="budget" class="space-y-6">
+            <h2 class="text-3xl font-bold border-b pb-2 text-text-main">Monthly Budget Tracker</h2>
+
+            <!-- Budget Setup Form -->
+            <div class="bg-surface rounded-xl p-6 shadow-lg">
+                <h3 class="text-xl font-semibold mb-4 text-text-main">Monthly Net Income Setup</h3>
+                <form id="budgetSetupForm" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label for="monthlySalary" class="block text-sm font-medium text-gray-700">Monthly Net Income (₹)</label>
+                        <input type="number" step="0.01" id="monthlySalary" placeholder="e.g., 50000" required min="0" class="mt-1 w-full p-2 border border-gray-300 rounded-lg focus:ring-primary-indigo focus:border-primary-indigo shadow-sm">
+                    </div>
+                    <div class="md:col-span-2 flex items-end">
+                        <button type="submit" class="w-full bg-positive-green text-white py-2.5 px-6 rounded-lg font-semibold hover:bg-green-700 transition duration-300 shadow-md">
+                            Save Income
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Budget Limit Form -->
+            <div class="bg-surface rounded-xl p-6 shadow-lg">
+                <h3 class="text-xl font-semibold mb-4 text-text-main">Category Budget Limits</h3>
+                <form id="budgetLimitForm" class="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+                    <div class="lg:col-span-2">
+                        <label for="budgetCategory" class="block text-sm font-medium text-gray-700">Expense Category</label>
+                        <select id="budgetCategory" required class="mt-1 w-full p-2 border border-gray-300 rounded-lg focus:ring-primary-indigo focus:border-primary-indigo shadow-sm appearance-none">
+                            <option value="" disabled selected>Select an Expense Category</option>
+                            <!-- Expense categories loaded by JS -->
+                        </select>
+                    </div>
+                    <div class="lg:col-span-2">
+                        <label for="budgetAmount" class="block text-sm font-medium text-gray-700">Monthly Limit (₹)</label>
+                        <input type="number" step="0.01" id="budgetAmount" placeholder="Limit for this category" required min="0.01" class="mt-1 w-full p-2 border border-gray-300 rounded-lg focus:ring-primary-indigo focus:border-primary-indigo shadow-sm">
+                    </div>
+                    <div class="lg:col-span-1 flex items-end">
+                        <button type="submit" class="w-full bg-primary-indigo text-white py-2.5 px-6 rounded-lg font-semibold hover:bg-indigo-700 transition duration-300 shadow-md">
+                            Set Limit
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Budget Comparison & Progress -->
+            <div class="bg-surface rounded-xl p-6 shadow-lg">
+                <h3 class="text-xl font-semibold mb-4 text-text-main">Budget Progress (Current Month)</h3>
+                <div id="salarySummary" class="text-lg mb-6 border-b pb-4">
+                    <!-- Salary info injected here -->
+                </div>
+
+                <div id="budgetProgressList">
+                    <p class="text-gray-500" id="noBudgetMessage">Set your salary and category limits above to see progress.</p>
+                    <!-- Budget progress bars injected here by JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- --- Divider --- -->
+        <hr class="border-gray-300 my-8">
+
+        <!-- ### SECTION 5: BANK ACCOUNTS ### -->
+        <div id="banks" class="space-y-6">
+            <h2 class="text-3xl font-bold border-b pb-2 text-text-main">Bank Accounts (Assets)</h2>
+
+            <!-- Bank Account Input Form -->
+            <div class="bg-surface rounded-xl p-6 shadow-lg">
+                <h3 class="text-xl font-semibold mb-4 text-text-main">Add New Bank Account</h3>
+                <form id="bankForm" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="lg:col-span-1">
+                        <label for="bankName" class="block text-sm font-medium text-gray-700">Bank Name</label>
+                        <input type="text" id="bankName" placeholder="e.g., HDFC, SBI" required class="mt-1 w-full p-2 border border-gray-300 rounded-lg focus:ring-primary-indigo focus:border-primary-indigo shadow-sm">
+                    </div>
+                    <div class="lg:col-span-1">
+                        <label for="accountType" class="block text-sm font-medium text-gray-700">Account Type</label>
+                        <select id="accountType" required class="mt-1 w-full p-2 border border-gray-300 rounded-lg focus:ring-primary-indigo focus:border-primary-indigo shadow-sm appearance-none">
+                            <option value="Savings">Savings</option>
+                            <option value="Checking">Checking</option>
+                            <option value="Investment">Investment</option>
+                        </select>
+                    </div>
+                    <div class="lg:col-span-1">
+                        <label for="bankBalance" class="block text-sm font-medium text-gray-700">Current Balance (₹)</label>
+                        <input type="number" step="0.01" id="bankBalance" required class="mt-1 w-full p-2 border border-gray-300 rounded-lg focus:ring-primary-indigo focus:border-primary-indigo shadow-sm">
+                    </div>
+                    <div class="lg:col-span-1 flex items-end">
+                        <button type="submit" class="w-full bg-primary-indigo text-white py-2.5 px-6 rounded-lg font-semibold hover:bg-indigo-700 transition duration-300 shadow-md">
+                            Add Account
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Bank Account List -->
+            <div class="bg-surface rounded-xl p-6 shadow-lg">
+                <h3 class="text-xl font-semibold mb-4 text-text-main">Account List</h3>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bank Name</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Balance</th>
+                                <th class="px-6 py-3"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="bankList" class="bg-white divide-y divide-gray-200">
+                            <!-- Bank accounts will be injected here by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- --- Divider --- -->
+        <hr class="border-gray-300 my-8">
+
+        <!-- ### SECTION 6: STOCK ACCOUNTS ### -->
+        <div id="stocks" class="space-y-6">
+            <h2 class="text-3xl font-bold border-b pb-2 text-text-main">Stock Portfolio Tracker (Assets)</h2>
+
+            <!-- Stock Account Input Form -->
+            <div class="bg-surface rounded-xl p-6 shadow-lg">
+                <h3 class="text-xl font-semibold mb-4 text-text-main">Add/Update Stock Portfolio</h3>
+                <form id="stockForm" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="lg:col-span-1">
+                        <label for="platformName" class="block text-sm font-medium text-gray-700">Platform Name</label>
+                        <input type="text" id="platformName" placeholder="e.g., Zerodha, Groww" required class="mt-1 w-full p-2 border border-gray-300 rounded-lg focus:ring-primary-indigo focus:border-primary-indigo shadow-sm">
+                    </div>
+                    <div class="lg:col-span-1">
+                        <label for="investedAmount" class="block text-sm font-medium text-gray-700">Total Invested (₹)</label>
+                        <input type="number" step="0.01" id="investedAmount" required min="0" class="mt-1 w-full p-2 border border-gray-300 rounded-lg focus:ring-primary-indigo focus:border-primary-indigo shadow-sm">
+                    </div>
+                    <div class="lg:col-span-1">
+                        <label for="currentValue" class="block text-sm font-medium text-gray-700">Current Value (₹)</label>
+                        <input type="number" step="0.01" id="currentValue" required min="0" class="mt-1 w-full p-2 border border-gray-300 rounded-lg focus:ring-primary-indigo focus:border-primary-indigo shadow-sm">
+                    </div>
+                    <div class="lg:col-span-1 flex items-end">
+                        <button type="submit" class="w-full bg-primary-indigo text-white py-2.5 px-6 rounded-lg font-semibold hover:bg-indigo-700 transition duration-300 shadow-md">
+                            Add/Update Portfolio
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Stock Portfolio Summary & List -->
+            <div class="bg-surface rounded-xl p-6 shadow-lg">
+                <h3 class="text-xl font-semibold mb-4 text-text-main">Portfolio Summary</h3>
+                <div id="stockSummaryCards" class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+                    <!-- Cards will be injected here by JS -->
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Platform</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Invested</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Current Value</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">P&L</th>
+                                <th class="px-6 py-3"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="stockList" class="bg-white divide-y divide-gray-200">
+                            <!-- Stock accounts will be injected here by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Custom Modal for Clear Data Confirmation (no alert()) -->
+        <div id="confirmModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 z-50 hidden items-center justify-center">
+            <div class="bg-white rounded-xl p-6 w-11/12 max-w-sm shadow-2xl transform transition-all duration-300 scale-100">
+                <h3 class="text-xl font-bold mb-4 text-negative-red">Confirm Data Deletion</h3>
+                <p class="text-gray-700 mb-6">Are you sure you want to **clear ALL data** (Transactions, Budgets, Bank, Stocks, and Custom Categories)? This action cannot be undone.</p>
+                <div class="flex justify-end space-x-3">
+                    <button id="cancelClearBtn" class="bg-gray-200 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-300 transition duration-300">
+                        Cancel
+                    </button>
+                    <button id="confirmClearBtn" class="bg-negative-red text-white py-2 px-4 rounded-lg font-medium hover:bg-red-700 transition duration-300 shadow-md">
+                        Clear Data
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // Default categories for initialization
+        const DEFAULT_EXPENSE_CATEGORIES = ["Food & Dining", "Housing", "Transportation", "Utilities", "Healthcare", "Entertainment", "Debt Payments", "Personal Care", "Education", "Travel", "Miscellaneous"];
+        const DEFAULT_INCOME_CATEGORIES = ["Salary", "Investment Income", "Freelance", "Gift", "Other Income"];
+
+        // Global data storage
+        let appData = {
+            transactions: [],
+            budget: {
+                monthlySalary: 0,
+                limits: {} // { category: limitAmount }
+            },
+            banks: [],
+            stocks: [],
+            categories: {
+                expense: [...DEFAULT_EXPENSE_CATEGORIES],
+                income: [...DEFAULT_INCOME_CATEGORIES]
+            }
+        };
+
+        let expenseChartInstance;
+        let stockChartInstance;
+
+        // --- UTILITY FUNCTIONS ---
+
+        /**
+         * Loads data from localStorage or uses default if not found.
+         */
+        function loadData() {
+            const storedData = localStorage.getItem('wealthTrackerData');
+            if (storedData) {
+                appData = JSON.parse(storedData);
+            }
+            // Ensure necessary nested structures exist and provide defaults if missing (especially for new categories feature)
+            if (!appData.transactions) appData.transactions = [];
+            if (!appData.budget) appData.budget = { monthlySalary: 0, limits: {} };
+            if (!appData.banks) appData.banks = [];
+            if (!appData.stocks) appData.stocks = [];
+            if (!appData.categories || !appData.categories.expense || !appData.categories.income) {
+                appData.categories = {
+                    expense: [...DEFAULT_EXPENSE_CATEGORIES],
+                    income: [...DEFAULT_INCOME_CATEGORIES]
+                };
+            }
+        }
+
+        /**
+         * Saves current appData to localStorage.
+         */
+        function saveData() {
+            localStorage.setItem('wealthTrackerData', JSON.stringify(appData));
+        }
+
+        /**
+         * Formats a number as a currency string (Indian Rupees).
+         * Uses the Indian locale (en-IN) for rupee symbol (₹) and numbering system (lakhs/crores).
+         * @param {number} amount
+         */
+        function formatCurrency(amount) {
+            // Ensure amount is treated as a number
+            const num = Number(amount) || 0;
+            return new Intl.NumberFormat('en-IN', {
+                style: 'currency',
+                currency: 'INR'
+            }).format(num);
+        }
+
+        // --- RENDER FUNCTIONS ---
+
+        /**
+         * Renders the Dashboard section.
+         */
+        function renderDashboard() {
+            const totals = calculateTotals();
+            const { totalIncome, totalExpenses, balance, totalBankBalance, totalStockValue, netWorth } = totals;
+
+            // 1. Summary Cards
+            const cards = [
+                { title: "Total Income", value: totalIncome, color: 'positive-green', icon: '⬆️' },
+                { title: "Total Expenses", value: totalExpenses, color: 'negative-red', icon: '⬇️' },
+                { title: "Net Flow", value: balance, color: balance >= 0 ? 'positive-green' : 'negative-red', icon: '📊' },
+                { title: "Total Bank Balance", value: totalBankBalance, color: 'primary-indigo', icon: '🏦' },
+                { title: "Total Stock Value", value: totalStockValue, color: 'primary-indigo', icon: '📈' },
+            ];
+
+            const cardHTML = cards.map(card => `
+                <div class="bg-surface rounded-xl p-4 shadow-lg flex-1 transition-transform duration-300 hover:scale-[1.02] hover:shadow-xl">
+                    <div class="text-xs font-semibold uppercase text-gray-500">${card.icon} ${card.title}</div>
+                    <div class="text-2xl font-bold mt-1" style="color: ${card.color}">${formatCurrency(card.value)}</div>
+                </div>
+            `).join('');
+            document.getElementById('summaryCards').innerHTML = cardHTML;
+
+            // 2. Net Worth Card
+            const netWorthEl = document.getElementById('netWorthValue');
+            netWorthEl.textContent = formatCurrency(netWorth);
+            netWorthEl.style.color = netWorth >= 0 ? '#3F51B5' : '#F44336';
+
+            // 3. Expense Chart
+            renderExpenseChart(getExpenseDataForChart());
+
+            // 4. Stock Portfolio Chart
+            renderStockChart();
+        }
+
+        /**
+         * Renders the custom category lists.
+         */
+        function renderCategories() {
+            const renderList = (type) => {
+                const categories = appData.categories[type];
+                if (categories.length === 0) {
+                    return `<p class="text-sm text-gray-500">No ${type} categories defined.</p>`;
+                }
+                
+                return categories.map(cat => `
+                    <span class="inline-flex items-center text-sm font-medium bg-gray-100 text-gray-800 rounded-full py-1 px-3 m-1 shadow-sm">
+                        ${cat}
+                        <button type="button" data-category="${cat}" data-type="${type}" class="delete-category-btn ml-1.5 -mr-0.5 h-3 w-3 text-gray-400 hover:text-negative-red transition duration-150">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                    </span>
+                `).join('');
+            };
+
+            document.getElementById('expenseCategoryList').innerHTML = `<h4 class="text-lg font-medium text-negative-red mb-2">Expense Categories</h4>` + renderList('expense');
+            document.getElementById('incomeCategoryList').innerHTML = `<h4 class="text-lg font-medium text-positive-green mb-2">Income Categories</h4>` + renderList('income');
+
+            // Also update all dropdowns that use these categories
+            updateCategoryDropdown(document.getElementById('transType').value);
+            renderBudgetFormCategories();
+        }
+
+        /**
+         * Updates the category dropdown in the Transaction form based on type.
+         */
+        function updateCategoryDropdown(type) {
+            const selectEl = document.getElementById('transCategory');
+            const categories = type === 'Income' ? appData.categories.income : appData.categories.expense;
+
+            selectEl.innerHTML = categories.map(cat => `<option value="${cat}">${cat}</option>`).join('');
+        }
+
+        /**
+         * Renders the Budget section.
+         */
+        function renderBudget() {
+            // Re-populate the category dropdown for budget limits
+            renderBudgetFormCategories();
+
+            // Calculate current spending by category
+            const categorySpending = {};
+            appData.transactions
+                .filter(t => t.type === 'Expense')
+                .forEach(t => {
+                    const cat = t.category || 'Miscellaneous';
+                    const amount = parseFloat(t.amount);
+                    categorySpending[cat] = (categorySpending[cat] || 0) + amount;
+                });
+
+            // 1. Salary Display
+            const salaryEl = document.getElementById('salarySummary');
+            const monthlySalary = parseFloat(appData.budget.monthlySalary);
+            salaryEl.innerHTML = `
+                <span class="font-semibold text-gray-700">Monthly Net Income:</span> <span class="text-positive-green font-extrabold">${formatCurrency(monthlySalary)}</span>
+            `;
+
+            // 2. Budget Progress List
+            const progressListEl = document.getElementById('budgetProgressList');
+            progressListEl.innerHTML = '';
+            const budgetCategories = Object.keys(appData.budget.limits);
+
+            if (budgetCategories.length === 0 && monthlySalary === 0) {
+                document.getElementById('noBudgetMessage').classList.remove('hidden');
+                return;
+            }
+
+            document.getElementById('noBudgetMessage').classList.add('hidden');
+
+            // Render each budgeted category progress
+            budgetCategories.forEach(cat => {
+                const limit = parseFloat(appData.budget.limits[cat]);
+                const spent = categorySpending[cat] || 0;
+                const percentage = Math.min(100, (spent / limit) * 100);
+                let barColor = 'bg-positive-green';
+                let statusText = '';
+                let alertClass = '';
+
+                if (percentage >= 100) {
+                    barColor = 'bg-negative-red';
+                    statusText = 'OVER BUDGET!';
+                    alertClass = 'ring-2 ring-negative-red';
+                } else if (percentage >= 80) {
+                    barColor = 'bg-yellow-500';
+                    statusText = 'Nearing Limit.';
+                    alertClass = 'ring-2 ring-yellow-500';
+                }
+
+                progressListEl.innerHTML += `
+                    <div class="mb-5 bg-surface rounded-lg p-4 shadow-md ${alertClass}">
+                        <div class="flex justify-between items-start mb-1">
+                            <h4 class="text-md font-semibold text-gray-800">${cat} Budget</h4>
+                            <div class="flex items-center space-x-2">
+                                <div class="text-sm font-medium text-right text-gray-600">
+                                    <div class="font-bold ${barColor.replace('bg-', 'text-')}">${statusText}</div>
+                                    <div class="text-xs">Spent: ${formatCurrency(spent)} / Limit: ${formatCurrency(limit)}</div>
+                                </div>
+                                <button data-category="${cat}" class="delete-budget-btn text-gray-400 hover:text-negative-red transition duration-150 p-1">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 10-2 0v6a1 1 0 102 0V8z" clip-rule="evenodd" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Progress Bar -->
+                        <div class="w-full bg-gray-200 rounded-full h-2.5">
+                            <div class="h-2.5 rounded-full transition-all duration-500" style="width: ${percentage}%; background-color: ${barColor.replace('bg-', '')};"></div>
+                        </div>
+                        <div class="text-xs text-gray-500 mt-1">${(100 - percentage).toFixed(1)}% remaining</div>
+                    </div>
+                `;
+            });
+        }
+
+        /**
+         * Populates the category dropdown in the Budget form.
+         */
+        function renderBudgetFormCategories() {
+            const budgetCategoryEl = document.getElementById('budgetCategory');
+            const expenseCategories = appData.categories.expense;
+
+            let options = '<option value="" disabled selected>Select an Expense Category</option>';
+            options += expenseCategories.map(cat => `<option value="${cat}">${cat}</option>`).join('');
+            budgetCategoryEl.innerHTML = options;
+        }
+
+        /**
+         * Main render function that calls all sub-renders and saves data.
+         */
+        function renderApp() {
+            saveData();
+            renderCategories(); // Renders categories and updates dropdowns
+            renderDashboard();
+            renderTransactions();
+            renderBanks();
+            renderStocks();
+            renderBudget();
+        }
+
+        // --- CALCULATOR FUNCTIONS ---
+
+        /**
+         * Calculates key financial totals.
+         */
+        function calculateTotals() {
+            const totals = {
+                totalIncome: 0,
+                totalExpenses: 0,
+                balance: 0,
+                totalBankBalance: 0,
+                totalStockValue: 0,
+                totalInvested: 0,
+                netWorth: 0
+            };
+
+            // 1. Transactions
+            appData.transactions.forEach(t => {
+                const amount = parseFloat(t.amount);
+                if (t.type === 'Income') {
+                    totals.totalIncome += amount;
+                } else if (t.type === 'Expense') {
+                    totals.totalExpenses += amount;
+                }
+            });
+            totals.balance = totals.totalIncome - totals.totalExpenses;
+
+            // 2. Bank Accounts
+            totals.totalBankBalance = appData.banks.reduce((sum, bank) => sum + parseFloat(bank.balance), 0);
+
+            // 3. Stock Accounts
+            totals.totalStockValue = appData.stocks.reduce((sum, stock) => sum + parseFloat(stock.currentValue), 0);
+            totals.totalInvested = appData.stocks.reduce((sum, stock) => sum + parseFloat(stock.investedAmount), 0);
+
+            // 4. Net Worth (Assets - Liabilities)
+            const totalAssets = totals.totalBankBalance + totals.totalStockValue;
+            totals.netWorth = totalAssets;
+
+            return totals;
+        }
+
+        /**
+         * Groups expenses by category for the chart.
+         */
+        function getExpenseDataForChart() {
+            const expenseMap = {};
+            appData.transactions
+                .filter(t => t.type === 'Expense')
+                .forEach(t => {
+                    // Use category or fall back to 'Miscellaneous' if somehow uncategorized
+                    const category = t.category || 'Miscellaneous';
+                    const amount = parseFloat(t.amount);
+                    expenseMap[category] = (expenseMap[category] || 0) + amount;
+                });
+
+            const labels = Object.keys(expenseMap);
+            const data = Object.values(expenseMap);
+            // Generate distinct colors for categories
+            const backgroundColors = labels.map((_, i) => `hsl(${i * 30 % 360}, 70%, 50%)`);
+
+            return { labels, data, backgroundColors };
+        }
+
+        // --- CHART RENDER FUNCTIONS (Same as before, adapted for single page) ---
+
+        /**
+         * Renders the Expense Chart using Chart.js.
+         * @param {object} data - { labels, data, backgroundColors }
+         */
+        function renderExpenseChart(data) {
+            const ctx = document.getElementById('expenseChart').getContext('2d');
+            const hasData = data.data.length > 0 && data.data.some(d => d > 0);
+
+            document.getElementById('expenseChart').style.display = hasData ? 'block' : 'none';
+            document.getElementById('expenseChartMessage').classList.toggle('hidden', hasData);
+
+            if (!hasData) {
+                if (expenseChartInstance) {
+                    expenseChartInstance.destroy();
+                    expenseChartInstance = null;
+                }
+                return;
+            }
+
+            if (expenseChartInstance) {
+                expenseChartInstance.data.labels = data.labels;
+                expenseChartInstance.data.datasets[0].data = data.data;
+                expenseChartInstance.data.datasets[0].backgroundColor = data.backgroundColors;
+                expenseChartInstance.update();
+            } else {
+                expenseChartInstance = new Chart(ctx, {
+                    type: 'pie',
+                    data: {
+                        labels: data.labels,
+                        datasets: [{
+                            data: data.data,
+                            backgroundColor: data.backgroundColors,
+                            hoverOffset: 8
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'right',
+                                labels: {
+                                    boxWidth: 10,
+                                    padding: 15
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: (context) => {
+                                        let label = context.label || '';
+                                        if (label) {
+                                            label += ': ';
+                                        }
+                                        label += formatCurrency(context.parsed);
+                                        return label;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        /**
+         * Renders the Stock Portfolio Composition Chart (Pie).
+         */
+        function renderStockChart() {
+            const ctx = document.getElementById('stockChart').getContext('2d');
+            const hasStocks = appData.stocks.length > 0;
+
+            document.getElementById('stockChart').style.display = hasStocks ? 'block' : 'none';
+            document.getElementById('stockChartMessage').classList.toggle('hidden', hasStocks);
+
+            if (!hasStocks) {
+                if (stockChartInstance) {
+                    stockChartInstance.destroy();
+                    stockChartInstance = null;
+                }
+                return;
+            }
+
+            const labels = appData.stocks.map(s => s.platformName);
+            const data = appData.stocks.map(s => parseFloat(s.currentValue));
+            const backgroundColors = labels.map((_, i) => `hsl(${(i * 50 + 120) % 360}, 70%, 50%)`);
+
+            if (stockChartInstance) {
+                stockChartInstance.data.labels = labels;
+                stockChartInstance.data.datasets[0].data = data;
+                stockChartInstance.data.datasets[0].backgroundColor = backgroundColors;
+                stockChartInstance.update();
+            } else {
+                stockChartInstance = new Chart(ctx, {
+                    type: 'pie',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            data: data,
+                            backgroundColor: backgroundColors,
+                            hoverOffset: 8
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'right',
+                                labels: {
+                                    boxWidth: 10,
+                                    padding: 15
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: (context) => {
+                                        let label = context.label || '';
+                                        if (label) {
+                                            label += ': ';
+                                        }
+                                        label += formatCurrency(context.parsed);
+                                        return label;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        /**
+         * Renders the Transactions list.
+         */
+        function renderTransactions() {
+            const listEl = document.getElementById('transactionList');
+            if (!listEl) return;
+
+            // Sort by date descending
+            const sortedTransactions = [...appData.transactions].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            listEl.innerHTML = sortedTransactions.map(t => {
+                const isIncome = t.type === 'Income';
+                const colorClass = isIncome ? 'text-positive-green' : 'text-negative-red';
+                const sign = isIncome ? '+' : '';
+                return `
+                    <tr class="hover:bg-gray-50 transition duration-150">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${t.date}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${t.type}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${t.category}</td>
+                        <td class="px-6 py-4 text-sm font-medium text-gray-700">${t.description}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-bold ${colorClass}">${sign}${formatCurrency(t.amount)}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <button data-id="${t.id}" class="delete-transaction-btn text-negative-red hover:text-red-900 transition duration-150">
+                                Delete
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('') || `<tr><td colspan="6" class="p-6 text-center text-gray-500">No transactions recorded.</td></tr>`;
+        }
+
+        /**
+         * Renders the Bank Accounts list.
+         */
+        function renderBanks() {
+            const listEl = document.getElementById('bankList');
+            if (!listEl) return;
+
+            listEl.innerHTML = appData.banks.map(b => `
+                <tr class="hover:bg-gray-50 transition duration-150">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${b.bankName}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${b.accountType}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-bold text-positive-green">${formatCurrency(b.balance)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button data-id="${b.id}" class="delete-bank-btn text-negative-red hover:text-red-900 transition duration-150">
+                            Delete
+                        </button>
+                    </td>
+                </tr>
+            `).join('') || `<tr><td colspan="4" class="p-6 text-center text-gray-500">No bank accounts added.</td></tr>`;
+        }
+
+        /**
+         * Renders the Stock Accounts list.
+         */
+        function renderStocks() {
+            const listEl = document.getElementById('stockList');
+            const summaryCardsEl = document.getElementById('stockSummaryCards');
+            if (!listEl || !summaryCardsEl) return;
+
+            const totals = calculateTotals();
+            const profitLoss = totals.totalStockValue - totals.totalInvested;
+            const profitLossClass = profitLoss >= 0 ? 'text-positive-green' : 'text-negative-red';
+
+            // Summary Cards
+            const stockSummaryCards = [
+                { title: "Total Invested", value: totals.totalInvested, color: 'primary-indigo', icon: '💸' },
+                { title: "Current Total Value", value: totals.totalStockValue, color: 'primary-indigo', icon: '⭐' },
+                { title: "Total P&L", value: profitLoss, color: profitLossClass, icon: '📈' },
+            ];
+
+            summaryCardsEl.innerHTML = stockSummaryCards.map(card => `
+                <div class="bg-surface rounded-xl p-4 shadow-md flex-1">
+                    <div class="text-xs font-semibold uppercase text-gray-500">${card.icon} ${card.title}</div>
+                    <div class="text-xl font-bold mt-1" style="color: ${card.color}">${formatCurrency(card.value)}</div>
+                </div>
+            `).join('');
+
+            // List
+            listEl.innerHTML = appData.stocks.map(s => {
+                const pnl = parseFloat(s.currentValue) - parseFloat(s.investedAmount);
+                const pnlClass = pnl >= 0 ? 'text-positive-green' : 'text-negative-red';
+
+                return `
+                    <tr class="hover:bg-gray-50 transition duration-150">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${s.platformName}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-700">${formatCurrency(s.investedAmount)}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-bold text-primary-indigo">${formatCurrency(s.currentValue)}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-bold ${pnlClass}">${pnl >= 0 ? '+' : ''}${formatCurrency(pnl)}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <button data-id="${s.id}" class="delete-stock-btn text-negative-red hover:text-red-900 transition duration-150">
+                                Delete
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('') || `<tr><td colspan="5" class="p-6 text-center text-gray-500">No stock portfolios added.</td></tr>`;
+        }
+
+        // --- EVENT LISTENERS & INITIALIZATION ---
+
+        function initializeListeners() {
+            // --- Category Management Form ---
+            document.getElementById('categoryForm').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const newCategoryName = document.getElementById('newCategoryName').value.trim();
+                const type = document.getElementById('categoryType').value; // 'expense' or 'income'
+
+                if (newCategoryName && !appData.categories[type].includes(newCategoryName)) {
+                    appData.categories[type].push(newCategoryName);
+                    e.target.reset(); // Clear the form
+                    renderApp();
+                } else if (newCategoryName) {
+                    console.warn('Category already exists.');
+                    // In a production app, show a modal message here.
+                }
+            });
+
+            // --- Delete Category Button ---
+            document.addEventListener('click', (e) => {
+                const target = e.target.closest('.delete-category-btn');
+                if (target) {
+                    const category = target.dataset.category;
+                    const type = target.dataset.type;
+
+                    if (confirmDeleteCategory(category)) {
+                        appData.categories[type] = appData.categories[type].filter(cat => cat !== category);
+                        // Also remove any budget limits associated with this deleted expense category
+                        if (type === 'expense') {
+                            delete appData.budget.limits[category];
+                        }
+                        renderApp();
+                    }
+                }
+            });
+
+            function confirmDeleteCategory(category) {
+                // Using a placeholder console log instead of alert/confirm
+                console.log(`ATTENTION: Category "${category}" deleted. If this category is still in use by transactions, those transactions will now display an 'uncategorized' or missing category label.`);
+                // For this environment, we will use a silent console log, but in a real app, this would be a modal warning.
+                return true; // Always proceed with deletion for simplicity in this file.
+            }
+
+            // --- Transactions Form ---
+            document.getElementById('transType').addEventListener('change', (e) => {
+                updateCategoryDropdown(e.target.value);
+            });
+
+            document.getElementById('transactionForm').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const newTransaction = {
+                    id: crypto.randomUUID(),
+                    date: document.getElementById('transDate').value,
+                    type: document.getElementById('transType').value,
+                    category: document.getElementById('transCategory').value,
+                    description: document.getElementById('transDescription').value,
+                    amount: parseFloat(document.getElementById('transAmount').value).toFixed(2),
+                };
+
+                appData.transactions.push(newTransaction);
+                e.target.reset();
+                renderApp();
+            });
+
+            // --- Delete Transactions/Banks/Stocks/Budget ---
+            document.addEventListener('click', (e) => {
+                const target = e.target;
+                const id = target.dataset.id;
+                const category = target.dataset.category;
+
+                if (target.classList.contains('delete-transaction-btn')) {
+                    appData.transactions = appData.transactions.filter(t => t.id !== id);
+                    renderApp();
+                } else if (target.classList.contains('delete-bank-btn')) {
+                    appData.banks = appData.banks.filter(b => b.id !== id);
+                    renderApp();
+                } else if (target.classList.contains('delete-stock-btn')) {
+                    appData.stocks = appData.stocks.filter(s => s.id !== id);
+                    renderApp();
+                } else if (target.classList.contains('delete-budget-btn')) {
+                    delete appData.budget.limits[category];
+                    renderApp();
+                }
+            });
+
+            // --- Bank Form ---
+            document.getElementById('bankForm').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const newBank = {
+                    id: crypto.randomUUID(),
+                    bankName: document.getElementById('bankName').value,
+                    accountType: document.getElementById('accountType').value,
+                    balance: parseFloat(document.getElementById('bankBalance').value).toFixed(2),
+                };
+                appData.banks.push(newBank);
+                e.target.reset();
+                renderApp();
+            });
+
+            // --- Stock Form ---
+            document.getElementById('stockForm').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const platformName = document.getElementById('platformName').value;
+                const investedAmount = parseFloat(document.getElementById('investedAmount').value).toFixed(2);
+                const currentValue = parseFloat(document.getElementById('currentValue').value).toFixed(2);
+
+                const existingIndex = appData.stocks.findIndex(s => s.platformName === platformName);
+
+                if (existingIndex > -1) {
+                    appData.stocks[existingIndex] = {
+                        ...appData.stocks[existingIndex],
+                        investedAmount,
+                        currentValue
+                    };
+                } else {
+                    const newStock = {
+                        id: crypto.randomUUID(),
+                        platformName,
+                        investedAmount,
+                        currentValue
+                    };
+                    appData.stocks.push(newStock);
+                }
+
+                e.target.reset();
+                renderApp();
+            });
+
+            // --- Budget Setup Form (Salary) ---
+            document.getElementById('budgetSetupForm').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const monthlySalary = parseFloat(document.getElementById('monthlySalary').value).toFixed(2);
+                appData.budget.monthlySalary = monthlySalary;
+                renderApp();
+            });
+
+            // --- Budget Limit Form (Category) ---
+            document.getElementById('budgetCategory').addEventListener('change', (e) => {
+                const selectedCat = e.target.value;
+                const limitInput = document.getElementById('budgetAmount');
+                const existingLimit = appData.budget.limits[selectedCat];
+                limitInput.value = existingLimit || '';
+            });
+
+            document.getElementById('budgetLimitForm').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const category = document.getElementById('budgetCategory').value;
+                const amount = parseFloat(document.getElementById('budgetAmount').value).toFixed(2);
+                appData.budget.limits[category] = amount;
+                e.target.reset();
+                document.getElementById('budgetCategory').selectedIndex = 0;
+                renderApp();
+            });
+
+            // --- Clear Data Modal Logic ---
+            const modal = document.getElementById('confirmModal');
+            document.getElementById('clearDataBtn').addEventListener('click', () => {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            });
+
+            document.getElementById('cancelClearBtn').addEventListener('click', () => {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            });
+
+            document.getElementById('confirmClearBtn').addEventListener('click', () => {
+                localStorage.removeItem('wealthTrackerData');
+                // Reset in-memory data to defaults including categories
+                appData = {
+                    transactions: [],
+                    budget: { monthlySalary: 0, limits: {} },
+                    banks: [],
+                    stocks: [],
+                    categories: {
+                        expense: [...DEFAULT_EXPENSE_CATEGORIES],
+                        income: [...DEFAULT_INCOME_CATEGORIES]
+                    }
+                };
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+                renderApp();
+                // Ensure initial dropdown is set after data clear
+                updateCategoryDropdown('Expense');
+            });
+        }
+
+        // Run setup functions on page load
+        window.onload = () => {
+            loadData();
+            initializeListeners();
+            renderApp(); // Initial render
+        };
+    </script>
+</body>
+</html>
