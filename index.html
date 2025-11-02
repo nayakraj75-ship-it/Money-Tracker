@@ -1,557 +1,1199 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Consolidated Wealth Tracker (₹)</title>
-  <!-- Inter Font -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
-  <!-- Tailwind CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    :root{--brand:#3F51B5;--bg:#FAFAFA}
-    html,body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial}
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consolidated Wealth Tracker (₹)</title>
+    <!-- Load Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Chart.js CDN for visualizations -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <style>
+        /* Define custom theme colors */
+        :root {
+            --color-primary-blue: #3F51B5;
+            --color-light-grey: #FAFAFA;
+        }
+        /* Use Inter font and light grey background */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--color-light-grey);
+            padding-top: 64px; /* Space for the fixed header */
+        }
+        /* Custom Tailwind Configuration */
+        .primary-bg { background-color: var(--color-primary-blue); }
+        .primary-text { color: var(--color-primary-blue); }
+        .primary-border { border-color: var(--color-primary-blue); }
+        .primary-hover:hover { background-color: #31409d; } /* Slightly darker hover */
+        .card { @apply bg-white p-4 rounded-xl shadow-lg transition duration-300 ease-in-out hover:shadow-xl; }
+        .input-style { @apply w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[--color-primary-blue] focus:border-[--color-primary-blue]; }
+    </style>
 </head>
-<body class="bg-[color:var(--bg)] text-gray-800">
-  <!-- Sticky Header -->
-  <header class="sticky top-0 z-50 bg-white shadow-sm border-b" >
-    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <div class="w-3 h-3 rounded-full" style="background:var(--brand)"></div>
-        <h1 class="text-lg font-semibold">Consolidated Wealth Tracker (₹)</h1>
-      </div>
-      <div class="flex items-center gap-2">
-        <button id="exportBtn" class="text-sm px-3 py-2 rounded-md border hover:shadow-sm">Export JSON</button>
-        <button id="importBtn" class="text-sm px-3 py-2 rounded-md border hover:shadow-sm">Import JSON</button>
-        <button id="clearBtn" class="bg-[color:var(--brand)] text-white px-3 py-2 rounded-md hover:opacity-95">Clear All Data</button>
-      </div>
+<body>
+
+    <!-- Sticky Header -->
+    <header class="fixed top-0 left-0 w-full primary-bg text-white shadow-2xl z-50">
+        <div class="container mx-auto p-4 flex justify-between items-center max-w-7xl">
+            <h1 class="text-xl sm:text-2xl font-bold tracking-tight">Consolidated Wealth Tracker (₹)</h1>
+            <button id="clearDataBtn" class="bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-lg font-medium text-sm transition duration-150 shadow-md">
+                Clear All Data
+            </button>
+        </div>
+    </header>
+
+    <!-- Global Status Message Container (Replaces alert()) -->
+    <div id="statusMessageContainer" class="fixed top-20 right-4 p-3 rounded-lg shadow-xl text-white z-[100] transition-opacity duration-300 opacity-0 pointer-events-none" style="min-width: 250px;">
+        <p id="statusMessageText" class="font-medium"></p>
     </div>
-  </header>
 
-  <main class="max-w-7xl mx-auto p-4 space-y-6">
-    <!-- Dashboard -->
-    <section class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-      <div class="lg:col-span-2 space-y-4">
-        <div class="bg-white rounded-2xl p-4 shadow-sm border">
-          <div class="flex items-center justify-between">
-            <div>
-              <div class="text-sm text-gray-500">Current Net Worth</div>
-              <div id="netWorth" class="text-3xl font-bold mt-1"></div>
+    <!-- Confirmation Modal for Clearing Data -->
+    <div id="confirmationModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100]">
+        <div class="bg-white p-6 rounded-xl shadow-2xl max-w-sm w-full card">
+            <h2 class="text-xl font-bold mb-4 text-red-600">Confirm Data Deletion</h2>
+            <p class="mb-6">Are you sure you want to delete **ALL** application data (transactions, assets, budgets, and categories)? This action cannot be undone.</p>
+            <div class="flex justify-end space-x-3">
+                <button id="cancelClearBtn" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg">Cancel</button>
+                <button id="confirmClearBtn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg">Yes, Clear All</button>
             </div>
-            <div class="space-y-2 text-right">
-              <div class="text-sm text-gray-500">Net Flow (This Month)</div>
-              <div id="netFlow" class="font-semibold"></div>
-            </div>
-          </div>
         </div>
-
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div class="bg-white p-4 rounded-xl shadow-sm border">
-            <div class="text-sm text-gray-500">Total Income</div>
-            <div id="totalIncome" class="text-xl font-semibold mt-1"></div>
-          </div>
-          <div class="bg-white p-4 rounded-xl shadow-sm border">
-            <div class="text-sm text-gray-500">Total Expenses</div>
-            <div id="totalExpenses" class="text-xl font-semibold mt-1"></div>
-          </div>
-          <div class="bg-white p-4 rounded-xl shadow-sm border">
-            <div class="text-sm text-gray-500">Total Bank Balance</div>
-            <div id="totalBanks" class="text-xl font-semibold mt-1"></div>
-          </div>
-          <div class="bg-white p-4 rounded-xl shadow-sm border">
-            <div class="text-sm text-gray-500">Total Stock Value</div>
-            <div id="totalStocks" class="text-xl font-semibold mt-1"></div>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-          <div class="bg-white p-4 rounded-xl shadow-sm border">
-            <h3 class="font-semibold mb-2">Expenses by Category</h3>
-            <canvas id="expensesChart" height="240"></canvas>
-          </div>
-          <div class="bg-white p-4 rounded-xl shadow-sm border">
-            <h3 class="font-semibold mb-2">Stock Portfolio Composition</h3>
-            <canvas id="stocksChart" height="240"></canvas>
-          </div>
-        </div>
-
-      </div>
-
-      <!-- Right column: Quick forms and lists -->
-      <aside class="space-y-4">
-        <div class="bg-white p-4 rounded-xl shadow-sm border">
-          <h3 class="font-semibold">Quick Add Transaction</h3>
-          <form id="quickTxnForm" class="space-y-2 mt-2">
-            <div class="flex gap-2">
-              <input required type="date" id="qDate" class="flex-1 px-3 py-2 border rounded" />
-              <select id="qType" class="px-3 py-2 border rounded">
-                <option value="expense">Expense</option>
-                <option value="income">Income</option>
-              </select>
-            </div>
-            <div>
-              <select id="qCategory" class="w-full px-3 py-2 border rounded"></select>
-            </div>
-            <div>
-              <input id="qDesc" placeholder="Description" class="w-full px-3 py-2 border rounded" />
-            </div>
-            <div class="flex gap-2">
-              <input id="qAmount" type="number" step="0.01" placeholder="Amount (₹)" class="flex-1 px-3 py-2 border rounded" />
-              <button class="bg-[color:var(--brand)] text-white px-3 py-2 rounded" type="submit">Add</button>
-            </div>
-          </form>
-        </div>
-
-        <div class="bg-white p-4 rounded-xl shadow-sm border">
-          <h3 class="font-semibold">Add Bank Account</h3>
-          <form id="bankForm" class="space-y-2 mt-2">
-            <input id="bankName" placeholder="Bank Name" class="w-full px-3 py-2 border rounded" required />
-            <select id="bankType" class="w-full px-3 py-2 border rounded">
-              <option>Savings</option>
-              <option>Current</option>
-              <option>Fixed Deposit</option>
-              <option>Other</option>
-            </select>
-            <input id="bankBalance" type="number" step="0.01" placeholder="Balance (₹)" class="w-full px-3 py-2 border rounded" required />
-            <div class="flex justify-end">
-              <button class="bg-[color:var(--brand)] text-white px-3 py-2 rounded" type="submit">Add Bank</button>
-            </div>
-          </form>
-        </div>
-
-        <div class="bg-white p-4 rounded-xl shadow-sm border">
-          <h3 class="font-semibold">Add/Update Stock Portfolio</h3>
-          <form id="stockForm" class="space-y-2 mt-2">
-            <input id="stockPlatform" placeholder="Platform Name (e.g., Zerodha)" class="w-full px-3 py-2 border rounded" required />
-            <input id="stockInvested" type="number" step="0.01" placeholder="Total Invested (₹)" class="w-full px-3 py-2 border rounded" required />
-            <input id="stockCurrent" type="number" step="0.01" placeholder="Current Value (₹)" class="w-full px-3 py-2 border rounded" required />
-            <div class="flex justify-end">
-              <button class="bg-[color:var(--brand)] text-white px-3 py-2 rounded" type="submit">Add/Update</button>
-            </div>
-          </form>
-        </div>
-
-      </aside>
-    </section>
-
-    <!-- Categories management -->
-    <section class="bg-white p-4 rounded-xl shadow-sm border">
-      <h2 class="font-semibold mb-2">Category Management</h2>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div>
-          <h3 class="font-medium">Add New Category</h3>
-          <form id="catForm" class="mt-2 flex gap-2">
-            <input id="catName" placeholder="Category Name" class="flex-1 px-3 py-2 border rounded" required />
-            <select id="catKind" class="px-3 py-2 border rounded">
-              <option value="expense">Expense</option>
-              <option value="income">Income</option>
-            </select>
-            <button class="bg-[color:var(--brand)] text-white px-3 py-2 rounded">Add</button>
-          </form>
-        </div>
-        <div>
-          <h3 class="font-medium">Expense Categories</h3>
-          <ul id="expenseList" class="mt-2 space-y-1 max-h-48 overflow-auto"></ul>
-        </div>
-        <div>
-          <h3 class="font-medium">Income Categories</h3>
-          <ul id="incomeList" class="mt-2 space-y-1 max-h-48 overflow-auto"></ul>
-        </div>
-      </div>
-    </section>
-
-    <!-- Transactions -->
-    <section class="bg-white p-4 rounded-xl shadow-sm border">
-      <h2 class="font-semibold mb-2">Transactions</h2>
-      <form id="txnForm" class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
-        <div>
-          <label class="text-sm">Date</label>
-          <input required type="date" id="txnDate" class="w-full px-3 py-2 border rounded" />
-        </div>
-        <div>
-          <label class="text-sm">Type</label>
-          <select id="txnType" class="w-full px-3 py-2 border rounded">
-            <option value="expense">Expense</option>
-            <option value="income">Income</option>
-          </select>
-        </div>
-        <div>
-          <label class="text-sm">Category</label>
-          <select id="txnCategory" class="w-full px-3 py-2 border rounded"></select>
-        </div>
-        <div>
-          <label class="text-sm">Amount (₹)</label>
-          <input required id="txnAmount" type="number" step="0.01" class="w-full px-3 py-2 border rounded" />
-        </div>
-        <div class="md:col-span-3">
-          <label class="text-sm">Description</label>
-          <input id="txnDescription" class="w-full px-3 py-2 border rounded" />
-        </div>
-        <div class="text-right">
-          <button class="bg-[color:var(--brand)] text-white px-4 py-2 rounded" type="submit">Add Transaction</button>
-        </div>
-      </form>
-
-      <div class="mt-4 overflow-auto">
-        <table class="min-w-full text-left text-sm">
-          <thead class="text-gray-600">
-            <tr>
-              <th class="px-2 py-2">Date</th>
-              <th class="px-2 py-2">Type</th>
-              <th class="px-2 py-2">Category</th>
-              <th class="px-2 py-2">Description</th>
-              <th class="px-2 py-2">Amount</th>
-              <th class="px-2 py-2">Action</th>
-            </tr>
-          </thead>
-          <tbody id="txnTableBody"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- Budget Tracker -->
-    <section class="bg-white p-4 rounded-xl shadow-sm border">
-      <h2 class="font-semibold mb-2">Monthly Budget Tracker</h2>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div>
-          <h3 class="font-medium">Set Monthly Net Income (Salary)</h3>
-          <form id="salaryForm" class="mt-2 flex gap-2">
-            <input id="salaryInput" type="number" step="0.01" placeholder="Monthly Net Income (₹)" class="flex-1 px-3 py-2 border rounded" />
-            <button class="bg-[color:var(--brand)] text-white px-3 py-2 rounded">Set</button>
-          </form>
-          <div class="mt-2 text-sm text-gray-600">Current: <span id="salaryDisplay">-</span></div>
-        </div>
-        <div>
-          <h3 class="font-medium">Set Category Budget Limit</h3>
-          <form id="budgetForm" class="mt-2 flex gap-2">
-            <select id="budgetCategory" class="px-3 py-2 border rounded flex-1"></select>
-            <input id="budgetAmount" type="number" step="0.01" placeholder="Limit (₹)" class="px-3 py-2 border rounded w-36" />
-            <button class="bg-[color:var(--brand)] text-white px-3 py-2 rounded">Add</button>
-          </form>
-        </div>
-        <div>
-          <h3 class="font-medium">Budget Summary (This Month)</h3>
-          <div class="mt-2 text-sm">Monthly Income: <span id="budgetIncome">-</span></div>
-          <div id="budgetProgress" class="mt-3 space-y-3 max-h-64 overflow-auto"></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Bank Accounts & Stocks lists -->
-    <section class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div class="bg-white p-4 rounded-xl shadow-sm border">
-        <h2 class="font-semibold mb-2">Bank Accounts</h2>
-        <ul id="banksList" class="space-y-2"></ul>
-      </div>
-      <div class="bg-white p-4 rounded-xl shadow-sm border">
-        <h2 class="font-semibold mb-2">Stock Portfolios</h2>
-        <div class="mb-3 text-sm">Total Invested: <span id="totalInvested">-</span> | Current Value: <span id="totalCurrentVal">-</span> | P&L: <span id="totalPL">-</span></div>
-        <ul id="stocksList" class="space-y-2"></ul>
-      </div>
-    </section>
-
-    <footer class="text-center text-sm text-gray-500 py-6">Data stored locally in your browser using localStorage. Built with ❤️ using Tailwind & Chart.js</footer>
-  </main>
-
-  <!-- Clear confirmation modal -->
-  <div id="confirmModal" class="fixed inset-0 hidden items-center justify-center bg-black/40">
-    <div class="bg-white p-6 rounded-lg shadow-lg w-11/12 max-w-md">
-      <h3 class="font-semibold">Confirm Clear All Data</h3>
-      <p class="text-sm text-gray-600 mt-2">This will delete all saved transactions, budgets, accounts, stocks, and custom categories and restore default categories. This action is irreversible.</p>
-      <div class="mt-4 flex justify-end gap-2">
-        <button id="cancelClear" class="px-3 py-2 border rounded">Cancel</button>
-        <button id="confirmClear" class="px-3 py-2 bg-red-600 text-white rounded">Clear All</button>
-      </div>
     </div>
-  </div>
 
-<script>
-// ---------- Utilities & Defaults ----------
-const CURRENCY = new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR'});
-const LS_KEYS = {
-  transactions: 'wealth_transactions_v1',
-  categories: 'wealth_categories_v1',
-  banks: 'wealth_banks_v1',
-  stocks: 'wealth_stocks_v1',
-  budget: 'wealth_budget_v1'
-}
+    <!-- Main Content Area -->
+    <main class="container mx-auto p-4 max-w-7xl">
 
-const DEFAULT_CATEGORIES = {
-  expense: ["Food & Dining","Housing","Transportation","Utilities","Healthcare","Entertainment","Debt Payments","Personal Care","Education","Travel","Miscellaneous"],
-  income: ["Salary","Investment Income","Freelance","Gift","Other Income"]
-}
+        <!-- Financial Overview (Dashboard) -->
+        <section class="mb-10">
+            <h2 class="text-3xl font-extrabold primary-text mb-6 border-b pb-2">Financial Overview</h2>
 
-let state = {
-  transactions: [],
-  categories: { expense: [], income: [] },
-  banks: [],
-  stocks: [],
-  budget: { salary: 0, limits: {} }
-}
+            <!-- Net Worth Card -->
+            <div class="card p-6 mb-8 primary-bg text-white shadow-2xl">
+                <p class="text-lg font-semibold mb-1 opacity-90">Current Net Worth (Assets - Liabilities)</p>
+                <div id="netWorthDisplay" class="text-5xl font-bold tracking-tight">₹0.00</div>
+            </div>
 
-// ---------- Persistence ----------
-function saveState(){
-  localStorage.setItem(LS_KEYS.transactions, JSON.stringify(state.transactions));
-  localStorage.setItem(LS_KEYS.categories, JSON.stringify(state.categories));
-  localStorage.setItem(LS_KEYS.banks, JSON.stringify(state.banks));
-  localStorage.setItem(LS_KEYS.stocks, JSON.stringify(state.stocks));
-  localStorage.setItem(LS_KEYS.budget, JSON.stringify(state.budget));
-}
-function loadState(){
-  const tx = JSON.parse(localStorage.getItem(LS_KEYS.transactions) || 'null');
-  const cats = JSON.parse(localStorage.getItem(LS_KEYS.categories) || 'null');
-  const banks = JSON.parse(localStorage.getItem(LS_KEYS.banks) || 'null');
-  const stocks = JSON.parse(localStorage.getItem(LS_KEYS.stocks) || 'null');
-  const budget = JSON.parse(localStorage.getItem(LS_KEYS.budget) || 'null');
-  state.transactions = Array.isArray(tx)?tx:[];
-  state.categories = cats && cats.expense?cats:JSON.parse(JSON.stringify(DEFAULT_CATEGORIES));
-  state.banks = Array.isArray(banks)?banks:[];
-  state.stocks = Array.isArray(stocks)?stocks:[];
-  state.budget = budget && typeof budget.salary==='number'?budget:{ salary:0, limits:{} };
-}
+            <!-- Summary Cards -->
+            <div id="summaryCards" class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-10">
+                <!-- Cards will be populated here -->
+            </div>
 
-function resetAll(){
-  localStorage.removeItem(LS_KEYS.transactions);
-  localStorage.removeItem(LS_KEYS.categories);
-  localStorage.removeItem(LS_KEYS.banks);
-  localStorage.removeItem(LS_KEYS.stocks);
-  localStorage.removeItem(LS_KEYS.budget);
-  loadState(); renderAll();
-}
+            <!-- Charts Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="card p-4">
+                    <h3 class="text-xl font-semibold mb-4 primary-text">Expenses by Category</h3>
+                    <div class="h-64 flex justify-center items-center">
+                        <canvas id="expensesChart"></canvas>
+                    </div>
+                </div>
+                <div class="card p-4">
+                    <h3 class="text-xl font-semibold mb-4 primary-text">Stock Portfolio Composition</h3>
+                    <div class="h-64 flex justify-center items-center">
+                        <canvas id="stocksChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
 
-// ---------- Rendering ----------
-function renderCategories(){
-  const expList = document.getElementById('expenseList');
-  const incList = document.getElementById('incomeList');
-  expList.innerHTML=''; incList.innerHTML='';
-  state.categories.expense.forEach(name=>{
-    const li = document.createElement('li');
-    li.className='flex items-center justify-between gap-2';
-    const label = document.createElement('div'); label.innerText = name;
-    const btn = document.createElement('button'); btn.className='text-xs px-2 py-1 border rounded'; btn.innerText='Delete';
-    btn.onclick = ()=>{ if(confirm('Delete custom category: '+name+'?')){ removeCategory('expense',name); } }
-    // Protect default categories from deletion
-    if(DEFAULT_CATEGORIES.expense.includes(name)) btn.style.display='none';
-    li.appendChild(label); li.appendChild(btn); expList.appendChild(li);
-  })
-  state.categories.income.forEach(name=>{
-    const li = document.createElement('li');
-    li.className='flex items-center justify-between gap-2';
-    const label = document.createElement('div'); label.innerText = name;
-    const btn = document.createElement('button'); btn.className='text-xs px-2 py-1 border rounded'; btn.innerText='Delete';
-    btn.onclick = ()=>{ if(confirm('Delete custom category: '+name+'?')){ removeCategory('income',name); } }
-    if(DEFAULT_CATEGORIES.income.includes(name)) btn.style.display='none';
-    li.appendChild(label); li.appendChild(btn); incList.appendChild(li);
-  })
-  // Update dropdowns
-  refreshCategoryDropdowns();
-}
+        <!-- --- -->
 
-function refreshCategoryDropdowns(){
-  const qCat = document.getElementById('qCategory');
-  const txnCat = document.getElementById('txnCategory');
-  const budgetCat = document.getElementById('budgetCategory');
-  [qCat, txnCat, budgetCat].forEach(el=>el && (el.innerHTML=''));
-  // First add both types for general category selects
-  const addOptions = (el, includeIncome=true)=>{
-    state.categories.expense.forEach(c=>{ const opt=document.createElement('option'); opt.value=c; opt.innerText=c; el.appendChild(opt); })
-    if(includeIncome){ state.categories.income.forEach(c=>{ const opt=document.createElement('option'); opt.value=c; opt.innerText=c; el.appendChild(opt); }) }
-  }
-  if(qCat) addOptions(qCat);
-  if(txnCat) addOptions(txnCat);
-  // budget category must be expense only
-  if(budgetCat){ state.categories.expense.forEach(c=>{ const opt=document.createElement('option'); opt.value=c; opt.innerText=c; budgetCat.appendChild(opt); }) }
-}
+        <!-- Income & Expense Tracker (Transactions) -->
+        <section class="my-10">
+            <h2 class="text-3xl font-extrabold primary-text mb-6 border-b pb-2">Record New Transaction</h2>
+            <div class="card mb-8">
+                <form id="transactionForm" class="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+                    <!-- Date -->
+                    <div>
+                        <label for="transDate" class="block text-sm font-medium text-gray-700">Date</label>
+                        <input type="date" id="transDate" required class="input-style">
+                    </div>
+                    <!-- Type -->
+                    <div>
+                        <label for="transType" class="block text-sm font-medium text-gray-700">Type</label>
+                        <select id="transType" required class="input-style">
+                            <option value="Income">Income</option>
+                            <option value="Expense">Expense</option>
+                        </select>
+                    </div>
+                    <!-- Category -->
+                    <div>
+                        <label for="transCategory" class="block text-sm font-medium text-gray-700">Category</label>
+                        <select id="transCategory" required class="input-style">
+                            <!-- Populated by JS -->
+                        </select>
+                    </div>
+                    <!-- Description -->
+                    <div class="lg:col-span-1">
+                        <label for="transDesc" class="block text-sm font-medium text-gray-700">Description</label>
+                        <input type="text" id="transDesc" required placeholder="e.g., Dinner at ABC" class="input-style">
+                    </div>
+                    <!-- Amount -->
+                    <div>
+                        <label for="transAmount" class="block text-sm font-medium text-gray-700">Amount (₹)</label>
+                        <input type="number" id="transAmount" required min="0.01" step="0.01" placeholder="500.00" class="input-style">
+                    </div>
+                    <!-- Submit -->
+                    <div class="lg:col-span-1 flex items-end">
+                        <button type="submit" class="w-full primary-bg text-white font-semibold py-2 rounded-lg primary-hover transition duration-150 shadow-md">
+                            Add Transaction
+                        </button>
+                    </div>
+                </form>
+            </div>
 
-function renderTransactions(){
-  const tbody = document.getElementById('txnTableBody'); tbody.innerHTML='';
-  const sorted = state.transactions.slice().sort((a,b)=> new Date(b.date) - new Date(a.date));
-  sorted.forEach((t,idx)=>{
-    const tr=document.createElement('tr'); tr.className='border-t';
-    const d = new Date(t.date);
-    tr.innerHTML = `<td class="px-2 py-2">${d.toLocaleDateString()}</td>
-      <td class="px-2 py-2">${t.type}</td>
-      <td class="px-2 py-2">${t.category}</td>
-      <td class="px-2 py-2">${t.description||''}</td>
-      <td class="px-2 py-2">${CURRENCY.format(Number(t.amount))}</td>
-      <td class="px-2 py-2"><button data-idx="${idx}" class="px-2 py-1 text-xs border rounded deleteTxn">Delete</button></td>`;
-    tbody.appendChild(tr);
-  })
-  // attach delete handlers
-  document.querySelectorAll('.deleteTxn').forEach(btn=>{
-    btn.addEventListener('click', (e)=>{
-      const index = Number(e.currentTarget.dataset.idx);
-      // find item in state.transactions by matching sorted position -> easier: find by id
-      // we will store an id to each transaction
-      const item = sorted[index];
-      const id = item && item.id;
-      if(!id) return;
-      if(confirm('Delete transaction?')){ state.transactions = state.transactions.filter(t=>t.id!==id); saveState(); renderAll(); }
-    })
-  })
-}
+            <h3 class="text-2xl font-bold primary-text mb-4">Recent Transactions</h3>
+            <div class="overflow-x-auto card">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead>
+                        <tr class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th class="px-3 py-3">Date</th>
+                            <th class="px-3 py-3">Type</th>
+                            <th class="px-3 py-3">Category</th>
+                            <th class="px-3 py-3">Description</th>
+                            <th class="px-3 py-3 text-right">Amount (₹)</th>
+                            <th class="px-3 py-3"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="transactionsTableBody" class="bg-white divide-y divide-gray-200">
+                        <!-- Transactions will be populated here -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
 
-function renderBanks(){
-  const ul = document.getElementById('banksList'); ul.innerHTML='';
-  let total=0;
-  state.banks.forEach((b,idx)=>{
-    total += Number(b.balance||0);
-    const li = document.createElement('li'); li.className='flex items-center justify-between border rounded p-2';
-    li.innerHTML = `<div><div class="font-medium">${b.name}</div><div class="text-xs text-gray-600">${b.type}</div></div><div class="text-right">
-      <div>${CURRENCY.format(Number(b.balance))}</div>
-      <div class="mt-2 flex gap-2 justify-end"><button data-idx="${idx}" class="px-2 py-1 border rounded editBank">Edit</button><button data-idx="${idx}" class="px-2 py-1 border rounded deleteBank">Delete</button></div>
-    </div>`;
-    ul.appendChild(li);
-  })
-  document.getElementById('totalBanks').innerText = CURRENCY.format(total);
-  // attach handlers
-  document.querySelectorAll('.deleteBank').forEach(btn=>btn.addEventListener('click', e=>{ if(confirm('Delete bank?')){ const i=Number(e.currentTarget.dataset.idx); state.banks.splice(i,1); saveState(); renderAll(); }}));
-  document.querySelectorAll('.editBank').forEach(btn=>btn.addEventListener('click', e=>{ const i=Number(e.currentTarget.dataset.idx); const b=state.banks[i]; document.getElementById('bankName').value=b.name; document.getElementById('bankType').value=b.type; document.getElementById('bankBalance').value=b.balance; // on submit will push
-    state.banks.splice(i,1); saveState(); renderBanks(); }));
-}
+        <!-- --- -->
 
-function renderStocks(){
-  const ul = document.getElementById('stocksList'); ul.innerHTML='';
-  let totInvested=0, totCurrent=0;
-  state.stocks.forEach((s,idx)=>{
-    totInvested += Number(s.invested||0); totCurrent += Number(s.current||0);
-    const pl = Number(s.current) - Number(s.invested);
-    const li = document.createElement('li'); li.className='border rounded p-2 flex items-center justify-between';
-    li.innerHTML = `<div><div class="font-medium">${s.platform}</div><div class="text-xs text-gray-600">Invested: ${CURRENCY.format(Number(s.invested))} • Current: ${CURRENCY.format(Number(s.current))}</div></div>
-      <div class="text-right"><div>${CURRENCY.format(pl)}</div><div class="mt-2 flex gap-2 justify-end"><button data-idx="${idx}" class="px-2 py-1 border rounded editStock">Edit</button><button data-idx="${idx}" class="px-2 py-1 border rounded deleteStock">Delete</button></div></div>`;
-    ul.appendChild(li);
-  })
-  document.getElementById('totalInvested').innerText = CURRENCY.format(totInvested);
-  document.getElementById('totalCurrentVal').innerText = CURRENCY.format(totCurrent);
-  document.getElementById('totalPL').innerText = CURRENCY.format(totCurrent - totInvested);
-  document.getElementById('totalStocks').innerText = CURRENCY.format(totCurrent);
-  // handlers
-  document.querySelectorAll('.deleteStock').forEach(btn=>btn.addEventListener('click', e=>{ if(confirm('Delete portfolio?')){ const i=Number(e.currentTarget.dataset.idx); state.stocks.splice(i,1); saveState(); renderAll(); }}));
-  document.querySelectorAll('.editStock').forEach(btn=>btn.addEventListener('click', e=>{ const i=Number(e.currentTarget.dataset.idx); const s=state.stocks[i]; document.getElementById('stockPlatform').value=s.platform; document.getElementById('stockInvested').value=s.invested; document.getElementById('stockCurrent').value=s.current; state.stocks.splice(i,1); saveState(); renderStocks(); }));
-}
+        <!-- Monthly Budget Tracker -->
+        <section class="my-10">
+            <h2 class="text-3xl font-extrabold primary-text mb-6 border-b pb-2">Monthly Budget Tracker</h2>
 
-function renderBudget(){
-  document.getElementById('salaryDisplay').innerText = state.budget.salary?CURRENCY.format(state.budget.salary):'-';
-  document.getElementById('budgetIncome').innerText = state.budget.salary?CURRENCY.format(state.budget.salary):'-';
-  const container = document.getElementById('budgetProgress'); container.innerHTML='';
-  // compute spent per category in current month
-  const start = new Date(); start.setDate(1); start.setHours(0,0,0,0);
-  const end = new Date(start); end.setMonth(start.getMonth()+1);
-  const spent = {};
-  state.transactions.forEach(t=>{
-    const d=new Date(t.date);
-    if(d >= start && d < end && t.type==='expense'){
-      spent[t.category] = (spent[t.category] || 0) + Number(t.amount);
-    }
-  })
-  for(const [cat,limit] of Object.entries(state.budget.limits || {})){
-    const used = spent[cat]||0;
-    const pct = limit>0? Math.min(100, Math.round(used/limit*100)) : 0;
-    const color = pct >= 100 ? 'bg-red-500' : (pct >= 80 ? 'bg-yellow-400' : 'bg-green-500');
-    const el = document.createElement('div');
-    el.innerHTML = `<div class="flex justify-between text-sm"><div>${cat}</div><div>${CURRENCY.format(used)} / ${CURRENCY.format(limit)}</div></div>
-      <div class="w-full bg-gray-200 rounded h-3 mt-1 overflow-hidden"><div class="h-3 ${color}" style="width:${pct}%"></div></div>`;
-    container.appendChild(el);
-  }
-}
+            <!-- Set Monthly Net Income -->
+            <div class="card mb-6">
+                <h3 class="text-xl font-semibold mb-3">Set Monthly Net Income (Salary)</h3>
+                <form id="incomeBudgetForm" class="flex flex-col sm:flex-row gap-4 items-end">
+                    <div class="flex-grow w-full">
+                        <label for="monthlyIncome" class="block text-sm font-medium text-gray-700">Income (₹)</label>
+                        <input type="number" id="monthlyIncome" required min="0" step="100" placeholder="e.g., 80000" class="input-style">
+                    </div>
+                    <button type="submit" class="sm:w-auto w-full primary-bg text-white font-semibold py-2 px-4 rounded-lg primary-hover transition duration-150 shadow-md">
+                        Set Income
+                    </button>
+                </form>
+            </div>
 
-// Charts
-let expensesChart = null; let stocksChart = null;
-function renderCharts(){
-  const expenseAgg = {};
-  state.transactions.forEach(t=>{ if(t.type==='expense'){ expenseAgg[t.category] = (expenseAgg[t.category]||0) + Number(t.amount); }});
-  const expLabels = Object.keys(expenseAgg); const expData = expLabels.map(l=>expenseAgg[l]);
-  const ctxE = document.getElementById('expensesChart').getContext('2d');
-  if(expensesChart) expensesChart.destroy();
-  expensesChart = new Chart(ctxE, { type:'doughnut', data:{ labels:expLabels, datasets:[{ data:expData }] }, options:{ plugins:{ legend:{ position:'bottom' } } } });
+            <!-- Set Category Budget Limits -->
+            <div class="card mb-8">
+                <h3 class="text-xl font-semibold mb-3">Set Expense Category Budget Limits</h3>
+                <form id="budgetLimitForm" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <!-- Category Dropdown -->
+                    <div>
+                        <label for="budgetCategory" class="block text-sm font-medium text-gray-700">Category</label>
+                        <select id="budgetCategory" required class="input-style">
+                            <!-- Populated by JS with Expense categories only -->
+                        </select>
+                    </div>
+                    <!-- Limit Amount -->
+                    <div>
+                        <label for="budgetLimit" class="block text-sm font-medium text-gray-700">Limit (₹)</label>
+                        <input type="number" id="budgetLimit" required min="0" step="10" placeholder="e.g., 5000" class="input-style">
+                    </div>
+                    <!-- Submit -->
+                    <div class="flex items-end">
+                        <button type="submit" class="w-full primary-bg text-white font-semibold py-2 rounded-lg primary-hover transition duration-150 shadow-md">
+                            Set Limit
+                        </button>
+                    </div>
+                </form>
+            </div>
 
-  const stockLabels = state.stocks.map(s=>s.platform);
-  const stockData = state.stocks.map(s=>Number(s.current));
-  const ctxS = document.getElementById('stocksChart').getContext('2d');
-  if(stocksChart) stocksChart.destroy();
-  stocksChart = new Chart(ctxS, { type:'doughnut', data:{ labels:stockLabels, datasets:[{ data:stockData }] }, options:{ plugins:{ legend:{ position:'bottom' } } } });
-}
+            <!-- Budget Progress Display -->
+            <div class="card p-6">
+                <h3 class="text-2xl font-bold primary-text mb-4">Current Monthly Budget Status</h3>
+                <p id="totalMonthlyIncomeDisplay" class="text-lg font-medium mb-4">Monthly Net Income Set: <span class="font-bold">₹0.00</span></p>
+                <div id="budgetProgressContainer" class="space-y-4">
+                    <!-- Progress bars will be populated here -->
+                    <!-- The placeholder <p id="noBudgetSet"> is now managed by JS to fix the null error -->
+                </div>
+            </div>
+        </section>
 
-// Summary calculations
-function renderSummary(){
-  const totalIncome = state.transactions.filter(t=>t.type==='income').reduce((s,t)=>s+Number(t.amount),0);
-  const totalExpenses = state.transactions.filter(t=>t.type==='expense').reduce((s,t)=>s+Number(t.amount),0);
-  const totalBanks = state.banks.reduce((s,b)=>s+Number(b.balance||0),0);
-  const totalStockCurrent = state.stocks.reduce((s,sx)=>s+Number(sx.current||0),0);
-  const totalLiabilities = 0; // Liabilities feature could be added later
-  const netWorth = totalBanks + totalStockCurrent - totalLiabilities;
-  document.getElementById('totalIncome').innerText = CURRENCY.format(totalIncome);
-  document.getElementById('totalExpenses').innerText = CURRENCY.format(totalExpenses);
-  document.getElementById('netWorth').innerText = CURRENCY.format(netWorth);
-  document.getElementById('netFlow').innerText = CURRENCY.format(totalIncome - totalExpenses);
-}
+        <!-- --- -->
 
-function renderAll(){
-  renderCategories(); renderTransactions(); renderBanks(); renderStocks(); renderBudget(); renderCharts(); renderSummary(); saveState();
-}
+        <!-- Asset Management (Banks and Stocks) -->
+        <section class="my-10 grid grid-cols-1 lg:grid-cols-2 gap-8">
 
-// ---------- Mutations ----------
-function addCategory(kind,name){
-  name = name.trim(); if(!name) return; if(state.categories[kind].includes(name)) return alert('Category exists');
-  state.categories[kind].push(name); saveState(); renderCategories();
-}
-function removeCategory(kind,name){
-  // only allow removing if not default
-  if((kind==='expense' && DEFAULT_CATEGORIES.expense.includes(name)) || (kind==='income' && DEFAULT_CATEGORIES.income.includes(name))){ return alert('Cannot delete default category'); }
-  // remove any budgets for that category
-  if(state.budget.limits[name]) delete state.budget.limits[name];
-  state.categories[kind] = state.categories[kind].filter(c=>c!==name);
-  saveState(); renderAll();
-}
+            <!-- 5. Bank Accounts (Assets) -->
+            <div>
+                <h2 class="text-3xl font-extrabold primary-text mb-6 border-b pb-2">Bank Accounts (Assets)</h2>
+                <div class="card mb-6">
+                    <h3 class="text-xl font-semibold mb-3">Add Bank Account</h3>
+                    <form id="bankForm" class="space-y-3">
+                        <input type="text" id="bankName" required placeholder="Account Name (e.g., SBI Savings)" class="input-style">
+                        <select id="bankType" required class="input-style">
+                            <option value="" disabled selected>Select Account Type</option>
+                            <option value="Savings">Savings</option>
+                            <option value="Checking">Checking</option>
+                            <option value="Credit Card">Credit Card (as Liability - use negative balance)</option>
+                            <option value="Other">Other</option>
+                        </select>
+                        <input type="number" id="bankBalance" required placeholder="Current Balance (₹, e.g., 50000)" step="0.01" class="input-style">
+                        <button type="submit" class="w-full primary-bg text-white font-semibold py-2 rounded-lg primary-hover transition duration-150 shadow-md">
+                            Add/Update Bank Account
+                        </button>
+                    </form>
+                </div>
+                <div class="card">
+                    <h3 class="text-2xl font-bold primary-text mb-4">Current Bank Balances</h3>
+                    <div id="bankList" class="space-y-3">
+                        <!-- Bank accounts will be populated here -->
+                        <!-- The placeholder <p id="noBanks"> is now managed by JS to fix the null error -->
+                    </div>
+                </div>
+            </div>
 
-// ---------- Init & Event wiring ----------
-function uid(){ return Math.random().toString(36).slice(2,9); }
+            <!-- 6. Stock Portfolio Tracker (Assets) -->
+            <div>
+                <h2 class="text-3xl font-extrabold primary-text mb-6 border-b pb-2">Stock Portfolio Tracker (Assets)</h2>
+                <div class="card mb-6">
+                    <h3 class="text-xl font-semibold mb-3">Add Stock Portfolio</h3>
+                    <form id="stockForm" class="space-y-3">
+                        <input type="text" id="stockPlatform" required placeholder="Platform Name (e.g., Zerodha, Groww)" class="input-style">
+                        <input type="number" id="stockInvested" required min="0" step="0.01" placeholder="Total Invested Amount (₹)" class="input-style">
+                        <input type="number" id="stockValue" required min="0" step="0.01" placeholder="Current Market Value (₹)" class="input-style">
+                        <button type="submit" class="w-full primary-bg text-white font-semibold py-2 rounded-lg primary-hover transition duration-150 shadow-md">
+                            Add/Update Portfolio
+                        </button>
+                    </form>
+                </div>
+                <div class="card">
+                    <h3 class="text-2xl font-bold primary-text mb-4">Portfolio Summary</h3>
+                    <div id="stockSummary" class="mb-4 grid grid-cols-3 gap-4 text-center text-sm font-medium">
+                        <div class="p-2 border rounded-lg">Invested: <span id="totalInvested" class="font-bold block">₹0.00</span></div>
+                        <div class="p-2 border rounded-lg">Current Value: <span id="currentTotalValue" class="font-bold block">₹0.00</span></div>
+                        <div class="p-2 border rounded-lg">Total P&L: <span id="totalPnL" class="font-bold block text-gray-600">₹0.00</span></div>
+                    </div>
+                    <div id="stockList" class="space-y-3">
+                        <!-- Stock portfolios will be populated here -->
+                        <!-- The placeholder <p id="noStocks"> is now managed by JS to fix the null error -->
+                    </div>
+                </div>
+            </div>
+        </section>
 
-window.addEventListener('DOMContentLoaded', ()=>{
-  loadState(); // ensure categories defaulted
-  // if categories empty, set defaults
-  if(!state.categories.expense || state.categories.expense.length===0) state.categories.expense = JSON.parse(JSON.stringify(DEFAULT_CATEGORIES.expense));
-  if(!state.categories.income || state.categories.income.length===0) state.categories.income = JSON.parse(JSON.stringify(DEFAULT_CATEGORIES.income));
+        <!-- --- -->
 
-  // Forms
-  document.getElementById('catForm').addEventListener('submit', e=>{ e.preventDefault(); addCategory(document.getElementById('catKind').value, document.getElementById('catName').value); document.getElementById('catName').value=''; });
-  document.getElementById('txnForm').addEventListener('submit', e=>{
-    e.preventDefault(); const t={ id: uid(), date: document.getElementById('txnDate').value, type: document.getElementById('txnType').value, category: document.getElementById('txnCategory').value, amount: Number(document.getElementById('txnAmount').value), description: document.getElementById('txnDescription').value };
-    state.transactions.push(t); saveState(); renderAll(); e.target.reset();
-  });
-  document.getElementById('quickTxnForm').addEventListener('submit', e=>{ e.preventDefault(); const t={ id: uid(), date: document.getElementById('qDate').value||new Date().toISOString().slice(0,10), type: document.getElementById('qType').value, category: document.getElementById('qCategory').value, amount: Number(document.getElementById('qAmount').value), description: document.getElementById('qDesc').value };
-    state.transactions.push(t); saveState(); renderAll(); e.target.reset();
-  });
-  document.getElementById('bankForm').addEventListener('submit', e=>{ e.preventDefault(); const b={ name: document.getElementById('bankName').value, type: document.getElementById('bankType').value, balance: Number(document.getElementById('bankBalance').value) }; state.banks.push(b); saveState(); renderAll(); e.target.reset(); });
-  document.getElementById('stockForm').addEventListener('submit', e=>{ e.preventDefault(); const s={ platform: document.getElementById('stockPlatform').value, invested: Number(document.getElementById('stockInvested').value), current: Number(document.getElementById('stockCurrent').value) }; state.stocks.push(s); saveState(); renderAll(); e.target.reset(); });
-  document.getElementById('salaryForm').addEventListener('submit', e=>{ e.preventDefault(); const v = Number(document.getElementById('salaryInput').value); state.budget.salary = v; saveState(); renderBudget(); e.target.reset(); });
-  document.getElementById('budgetForm').addEventListener('submit', e=>{ e.preventDefault(); const cat = document.getElementById('budgetCategory').value; const amt = Number(document.getElementById('budgetAmount').value); if(!cat) return alert('Pick category'); state.budget.limits[cat]=amt; saveState(); renderBudget(); e.target.reset(); });
+        <!-- 2. Custom Category Management -->
+        <section class="my-10">
+            <h2 class="text-3xl font-extrabold primary-text mb-6 border-b pb-2">Custom Category Management</h2>
 
-  // Clear data modal
-  document.getElementById('clearBtn').addEventListener('click', ()=>{ document.getElementById('confirmModal').classList.remove('hidden'); document.getElementById('confirmModal').classList.add('flex'); });
-  document.getElementById('cancelClear').addEventListener('click', ()=>{ document.getElementById('confirmModal').classList.add('hidden'); document.getElementById('confirmModal').classList.remove('flex'); });
-  document.getElementById('confirmClear').addEventListener('click', ()=>{ resetAll(); document.getElementById('confirmModal').classList.add('hidden'); document.getElementById('confirmModal').classList.remove('flex'); alert('All data cleared and default categories restored.'); });
+            <div class="card mb-8">
+                <h3 class="text-xl font-semibold mb-3">Add New Custom Category</h3>
+                <form id="categoryForm" class="flex flex-col sm:flex-row gap-4 items-end">
+                    <div class="flex-grow w-full">
+                        <label for="categoryName" class="block text-sm font-medium text-gray-700">Category Name</label>
+                        <input type="text" id="categoryName" required placeholder="e.g., Pet Supplies" class="input-style">
+                    </div>
+                    <div class="w-full sm:w-1/3">
+                        <label for="categoryType" class="block text-sm font-medium text-gray-700">Type</label>
+                        <select id="categoryType" required class="input-style">
+                            <option value="Expense">Expense</option>
+                            <option value="Income">Income</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="sm:w-auto w-full primary-bg text-white font-semibold py-2 px-4 rounded-lg primary-hover transition duration-150 shadow-md">
+                        Add Category
+                    </button>
+                </form>
+            </div>
 
-  // Export / Import
-  document.getElementById('exportBtn').addEventListener('click', ()=>{
-    const payload = { transactions: state.transactions, categories: state.categories, banks: state.banks, stocks: state.stocks, budget: state.budget };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href=url; a.download='wealth-data.json'; a.click(); URL.revokeObjectURL(url);
-  });
-  document.getElementById('importBtn').addEventListener('click', ()=>{
-    const inp = document.createElement('input'); inp.type='file'; inp.accept='application/json'; inp.onchange = async (ev)=>{
-      const f = ev.target.files[0]; if(!f) return; const txt = await f.text(); try{ const p = JSON.parse(txt); state.transactions = p.transactions||[]; state.categories = p.categories||JSON.parse(JSON.stringify(DEFAULT_CATEGORIES)); state.banks = p.banks||[]; state.stocks = p.stocks||[]; state.budget = p.budget||{salary:0,limits:{}}; saveState(); renderAll(); alert('Import successful'); }catch(err){ alert('Invalid file'); }
-    }; inp.click();
-  });
+            <!-- Current Categories List -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="card">
+                    <h3 class="text-2xl font-bold text-red-600 mb-4">Expense Categories</h3>
+                    <ul id="expenseCategoryList" class="space-y-2">
+                        <!-- Expense categories will be populated here -->
+                    </ul>
+                </div>
+                <div class="card">
+                    <h3 class="text-2xl font-bold text-green-600 mb-4">Income Categories</h3>
+                    <ul id="incomeCategoryList" class="space-y-2">
+                        <!-- Income categories will be populated here -->
+                    </ul>
+                </div>
+            </div>
+        </section>
 
-  // initialize
-  renderAll();
-});
+    </main>
 
-</script>
+    <script>
+        // Global state and initialization
+        const APP_ID = 'wealth_tracker_v1';
+
+        const DEFAULT_CATEGORIES = {
+            Expense: [
+                "Food & Dining", "Housing", "Transportation", "Utilities", "Healthcare",
+                "Entertainment", "Debt Payments", "Personal Care", "Education", "Travel", "Miscellaneous"
+            ],
+            Income: [
+                "Salary", "Investment Income", "Freelance", "Gift", "Other Income"
+            ]
+        };
+
+        let appState = {
+            categories: [], // { name, type, isCustom, id }
+            transactions: [], // { date, type, category, description, amount, id }
+            banks: [], // { name, type, balance, id }
+            stocks: [], // { platform, invested, value, id }
+            budget: {
+                monthlyNetIncome: 0,
+                limits: {} // { 'Category Name': limitAmount }
+            }
+        };
+
+        let expensesChart, stocksChart;
+        let statusTimeout; // For managing the status message visibility
+
+        // Utility Functions
+
+        /**
+         * Displays a non-blocking status message in the corner of the screen.
+         * Replaces all usage of alert().
+         * @param {string} message The message to display.
+         * @param {boolean} isError If true, colors the message red.
+         */
+        function showStatusMessage(message, isError = false) {
+            const container = document.getElementById('statusMessageContainer');
+            const textElement = document.getElementById('statusMessageText');
+
+            console.log(`[STATUS] ${isError ? 'ERROR' : 'SUCCESS'}: ${message}`); // Debug logging
+
+            // Clear previous timeout
+            clearTimeout(statusTimeout);
+
+            // Set content and color
+            textElement.textContent = message;
+            container.classList.remove('bg-green-600', 'bg-red-600', 'opacity-0');
+            container.classList.add(isError ? 'bg-red-600' : 'bg-green-600');
+            container.classList.remove('pointer-events-none');
+            container.classList.add('opacity-100');
+
+            // Hide after 3 seconds
+            statusTimeout = setTimeout(() => {
+                container.classList.remove('opacity-100');
+                container.classList.add('opacity-0');
+                container.classList.add('pointer-events-none');
+            }, 3000);
+        }
+
+
+        /**
+         * Formats a number into Indian Rupee currency string.
+         * @param {number} amount
+         * @returns {string} Formatted rupee string (e.g., "₹50,00,000.00").
+         */
+        function formatRupee(amount) {
+            // Ensure non-numeric or null values return a default formatted zero
+            if (typeof amount !== 'number' || isNaN(amount)) {
+                amount = 0;
+            }
+            return new Intl.NumberFormat('en-IN', {
+                style: 'currency',
+                currency: 'INR',
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(amount);
+        }
+
+        /**
+         * Generates a simple, unique ID.
+         * @returns {string}
+         */
+        function generateId() {
+            return Date.now().toString(36) + Math.random().toString(36).substring(2);
+        }
+
+        // Data Persistence Functions
+
+        /**
+         * Loads state from localStorage or initializes defaults.
+         */
+        function loadData() {
+            try {
+                const storedState = localStorage.getItem(APP_ID);
+                if (storedState) {
+                    const loadedState = JSON.parse(storedState);
+                    appState = { ...appState, ...loadedState };
+                }
+            } catch (error) {
+                console.error("Could not load data from localStorage. Using defaults.", error);
+            }
+
+            // Ensure categories are populated (either from loaded data or defaults)
+            if (appState.categories.length === 0) {
+                initializeDefaultCategories();
+            }
+
+            // Ensure budget limits is an object
+            if (typeof appState.budget.limits !== 'object' || appState.budget.limits === null) {
+                appState.budget.limits = {};
+            }
+
+            renderAll();
+        }
+
+        /**
+         * Saves current state to localStorage.
+         */
+        function saveData() {
+            try {
+                localStorage.setItem(APP_ID, JSON.stringify(appState));
+            } catch (error) {
+                console.error("Could not save data to localStorage.", error);
+            }
+        }
+
+        // Category Management Logic
+
+        /**
+         * Populates the initial default categories.
+         */
+        function initializeDefaultCategories() {
+            appState.categories = [];
+            Object.keys(DEFAULT_CATEGORIES).forEach(type => {
+                DEFAULT_CATEGORIES[type].forEach(name => {
+                    appState.categories.push({
+                        name: name,
+                        type: type,
+                        isCustom: false,
+                        id: generateId()
+                    });
+                });
+            });
+            saveData();
+        }
+
+        /**
+         * Renders the category lists and populates category dropdowns.
+         */
+        function renderCategories() {
+            const expList = document.getElementById('expenseCategoryList');
+            const incList = document.getElementById('incomeCategoryList');
+            expList.innerHTML = '';
+            incList.innerHTML = '';
+
+            // Get dropdown elements
+            const transCategory = document.getElementById('transCategory');
+            const budgetCategory = document.getElementById('budgetCategory');
+            transCategory.innerHTML = '<option value="" disabled selected>Select Category</option>';
+            budgetCategory.innerHTML = '<option value="" disabled selected>Select Expense Category</option>';
+
+            const sortedCategories = appState.categories.sort((a, b) => a.name.localeCompare(b.name));
+
+            sortedCategories.forEach(cat => {
+                const listItem = document.createElement('li');
+                listItem.className = 'flex justify-between items-center p-2 border-b';
+                listItem.innerHTML = `<span>${cat.name}</span>`;
+
+                if (cat.isCustom) {
+                    // Add delete button only for custom categories
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.innerHTML = '&#x2715;'; // Times symbol
+                    deleteBtn.className = 'text-red-500 hover:text-red-700 font-bold ml-4';
+                    deleteBtn.onclick = () => deleteCategory(cat.id);
+                    listItem.appendChild(deleteBtn);
+                } else {
+                    listItem.innerHTML += '<span class="text-xs text-gray-400 ml-2">(Default)</span>';
+                }
+
+                // Populate Category Lists
+                if (cat.type === 'Expense') {
+                    expList.appendChild(listItem);
+                    // Populate Expense Category Dropdown (for budget)
+                    budgetCategory.innerHTML += `<option value="${cat.name}">${cat.name}</option>`;
+                } else {
+                    incList.appendChild(listItem);
+                }
+
+                // Populate Transaction Category Dropdown (for income and expense)
+                transCategory.innerHTML += `<option value="${cat.name}" data-type="${cat.type}">${cat.name} (${cat.type})</option>`;
+            });
+
+            // Add change listener to filter transaction categories based on type
+            const transTypeSelect = document.getElementById('transType');
+            transTypeSelect.onchange = filterTransactionCategories;
+            // Run initially to set the correct options
+            filterTransactionCategories();
+        }
+
+        /**
+         * Filters the transaction category dropdown based on the selected transaction type.
+         */
+        function filterTransactionCategories() {
+            const selectedType = document.getElementById('transType').value;
+            const transCategory = document.getElementById('transCategory');
+
+            // Re-enable all options first
+            Array.from(transCategory.options).forEach(option => {
+                const optionType = option.getAttribute('data-type');
+                if (optionType) {
+                    option.hidden = (optionType !== selectedType);
+                }
+            });
+
+            // Set the selected value to the first available category if the current one is hidden
+            if (transCategory.options[transCategory.selectedIndex].hidden) {
+                transCategory.selectedIndex = 0; // Reset to "Select Category"
+                // Try to auto-select the first visible category
+                for (let i = 1; i < transCategory.options.length; i++) {
+                    if (!transCategory.options[i].hidden) {
+                        transCategory.value = transCategory.options[i].value;
+                        break;
+                    }
+                }
+            }
+        }
+
+        /**
+         * Handles the submission of the Add New Custom Category form.
+         * @param {Event} e
+         */
+        function handleCategoryForm(e) {
+            e.preventDefault();
+            const name = document.getElementById('categoryName').value.trim();
+            const type = document.getElementById('categoryType').value;
+
+            console.log(`[DEBUG] Attempting to add category: "${name}" of type "${type}"`); // Added Debug Log
+
+            if (!name) {
+                showStatusMessage("Category name cannot be empty.", true);
+                return;
+            }
+
+            if (appState.categories.some(cat => cat.name.toLowerCase() === name.toLowerCase())) {
+                showStatusMessage("Category name already exists.", true);
+                return;
+            }
+
+            appState.categories.push({
+                name: name,
+                type: type,
+                isCustom: true,
+                id: generateId()
+            });
+
+            saveData();
+            renderCategories();
+            document.getElementById('categoryForm').reset();
+            showStatusMessage(`Category "${name}" added successfully.`);
+        }
+
+        /**
+         * Deletes a custom category and removes it from budget limits.
+         * @param {string} id
+         */
+        function deleteCategory(id) {
+            const categoryToDelete = appState.categories.find(cat => cat.id === id);
+
+            // Check if there are transactions using this category
+            if (appState.transactions.some(t => t.category === categoryToDelete.name)) {
+                showStatusMessage(`Cannot delete category "${categoryToDelete.name}" because transactions are currently using it.`, true);
+                return;
+            }
+
+            // Remove from categories list
+            appState.categories = appState.categories.filter(cat => cat.id !== id);
+
+            // Remove from budget limits if applicable
+            if (appState.budget.limits.hasOwnProperty(categoryToDelete.name)) {
+                delete appState.budget.limits[categoryToDelete.name];
+            }
+
+            showStatusMessage(`Category "${categoryToDelete.name}" deleted.`);
+            saveData();
+            renderCategories();
+            renderBudget();
+        }
+
+        // Transaction Logic
+
+        /**
+         * Handles the submission of the transaction form.
+         * @param {Event} e
+         */
+        function handleTransactionForm(e) {
+            e.preventDefault();
+
+            const transDate = document.getElementById('transDate').value;
+            const transType = document.getElementById('transType').value;
+            const transCategory = document.getElementById('transCategory').value;
+            const transDesc = document.getElementById('transDesc').value.trim();
+            const transAmount = parseFloat(document.getElementById('transAmount').value);
+
+            console.log(`[DEBUG] Transaction attempt: ${transType} ${transAmount} for ${transCategory}`);
+
+            if (transAmount <= 0 || !transDate || !transCategory) {
+                showStatusMessage("Please fill all fields correctly, including a positive amount and category.", true);
+                return;
+            }
+
+            appState.transactions.push({
+                date: transDate,
+                type: transType,
+                category: transCategory,
+                description: transDesc,
+                amount: transAmount,
+                id: generateId()
+            });
+
+            appState.transactions.sort((a, b) => new Date(b.date) - new Date(a.date)); // Sort by date (newest first)
+            saveData();
+            renderAll(); // Rerender everything to update tables and dashboard
+            document.getElementById('transactionForm').reset();
+            // Reset date field to current date after submission for convenience
+            document.getElementById('transDate').value = new Date().toISOString().substring(0, 10);
+            filterTransactionCategories(); // Ensure category dropdown is correct
+            showStatusMessage("Transaction added successfully.");
+        }
+
+        /**
+         * Renders the list of transactions in the table.
+         */
+        function renderTransactions() {
+            const tableBody = document.getElementById('transactionsTableBody');
+            tableBody.innerHTML = '';
+
+            // Show only the last 20 transactions
+            const recentTransactions = appState.transactions.slice(0, 20);
+
+            if (recentTransactions.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-gray-500 italic">No transactions recorded yet.</td></tr>';
+                return;
+            }
+
+            recentTransactions.forEach(t => {
+                const isExpense = t.type === 'Expense';
+                const rowClass = isExpense ? 'text-red-700' : 'text-green-700';
+                const typeBadge = isExpense ?
+                    '<span class="bg-red-100 text-red-800 text-xs font-medium px-2 py-0.5 rounded-full">Expense</span>' :
+                    '<span class="bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded-full">Income</span>';
+
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50';
+                row.innerHTML = `
+                    <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-500">${t.date}</td>
+                    <td class="px-3 py-3 whitespace-nowrap">${typeBadge}</td>
+                    <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-900">${t.category}</td>
+                    <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-600">${t.description}</td>
+                    <td class="px-3 py-3 whitespace-nowrap text-sm font-semibold text-right ${rowClass}">${formatRupee(t.amount)}</td>
+                    <td class="px-3 py-3 whitespace-nowrap text-right text-sm font-medium">
+                        <button onclick="deleteTransaction('${t.id}')" class="text-red-500 hover:text-red-700 font-bold" title="Delete Transaction">&times;</button>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+
+        /**
+         * Deletes a transaction by its ID.
+         * @param {string} id
+         */
+        function deleteTransaction(id) {
+            appState.transactions = appState.transactions.filter(t => t.id !== id);
+            saveData();
+            renderAll();
+            showStatusMessage("Transaction deleted.");
+        }
+
+        // Bank Account Logic
+
+        /**
+         * Handles the submission of the bank account form.
+         * @param {Event} e
+         */
+        function handleBankForm(e) {
+            e.preventDefault();
+            const name = document.getElementById('bankName').value.trim();
+            const type = document.getElementById('bankType').value;
+            const balance = parseFloat(document.getElementById('bankBalance').value);
+
+            let message = "";
+
+            // Check if account already exists (update logic)
+            const existingBank = appState.banks.find(b => b.name.toLowerCase() === name.toLowerCase());
+
+            if (existingBank) {
+                existingBank.type = type;
+                existingBank.balance = balance;
+                message = `Bank Account "${name}" updated.`;
+            } else {
+                appState.banks.push({
+                    name: name,
+                    type: type,
+                    balance: balance,
+                    id: generateId()
+                });
+                message = `Bank Account "${name}" added.`;
+            }
+
+            saveData();
+            renderAll();
+            document.getElementById('bankForm').reset();
+            showStatusMessage(message);
+        }
+
+        /**
+         * Renders the list of bank accounts.
+         */
+        function renderBanks() {
+            const bankListDiv = document.getElementById('bankList');
+            bankListDiv.innerHTML = ''; // Clear existing content
+
+            if (appState.banks.length === 0) {
+                bankListDiv.innerHTML = '<p class="text-gray-500 italic">No bank accounts added yet.</p>';
+                return;
+            }
+
+            appState.banks.forEach(b => {
+                const balanceColor = b.balance >= 0 ? 'text-green-600' : 'text-red-600';
+                const bankItem = document.createElement('div');
+                bankItem.className = 'p-3 bg-gray-50 rounded-lg shadow-sm flex justify-between items-center';
+                bankItem.innerHTML = `
+                    <div>
+                        <p class="font-medium">${b.name}</p>
+                        <p class="text-sm text-gray-500">${b.type}</p>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <p class="font-bold ${balanceColor}">${formatRupee(b.balance)}</p>
+                        <button onclick="deleteBank('${b.id}')" class="text-red-400 hover:text-red-600" title="Delete Bank">&times;</button>
+                    </div>
+                `;
+                bankListDiv.appendChild(bankItem);
+            });
+        }
+
+        /**
+         * Deletes a bank account.
+         * @param {string} id
+         */
+        function deleteBank(id) {
+            appState.banks = appState.banks.filter(b => b.id !== id);
+            saveData();
+            renderAll();
+            showStatusMessage("Bank account deleted.");
+        }
+
+        // Stock Portfolio Logic
+
+        /**
+         * Handles the submission of the stock portfolio form.
+         * @param {Event} e
+         */
+        function handleStockForm(e) {
+            e.preventDefault();
+            const platform = document.getElementById('stockPlatform').value.trim();
+            const invested = parseFloat(document.getElementById('stockInvested').value);
+            const value = parseFloat(document.getElementById('stockValue').value);
+
+            let message = "";
+
+            // Check if portfolio already exists (update logic)
+            const existingStock = appState.stocks.find(s => s.platform.toLowerCase() === platform.toLowerCase());
+
+            if (existingStock) {
+                existingStock.invested = invested;
+                existingStock.value = value;
+                message = `Stock Portfolio for "${platform}" updated.`;
+            } else {
+                appState.stocks.push({
+                    platform: platform,
+                    invested: invested,
+                    value: value,
+                    id: generateId()
+                });
+                message = `Stock Portfolio for "${platform}" added.`;
+            }
+
+            saveData();
+            renderAll();
+            document.getElementById('stockForm').reset();
+            showStatusMessage(message);
+        }
+
+        /**
+         * Renders the stock portfolio list and summary.
+         */
+        function renderStocks() {
+            const stockListDiv = document.getElementById('stockList');
+            stockListDiv.innerHTML = ''; // Clear existing content
+
+            let totalInvested = 0;
+            let currentTotalValue = 0;
+
+            if (appState.stocks.length === 0) {
+                stockListDiv.innerHTML = '<p class="text-gray-500 italic">No stock portfolios added yet.</p>';
+                // Ensure summary still shows zero when list is empty
+                document.getElementById('totalInvested').textContent = formatRupee(totalInvested);
+                document.getElementById('currentTotalValue').textContent = formatRupee(currentTotalValue);
+                document.getElementById('totalPnL').textContent = formatRupee(0);
+                document.getElementById('totalPnL').className = `font-bold block text-gray-600`;
+                return;
+            }
+
+
+            appState.stocks.forEach(s => {
+                totalInvested += s.invested;
+                currentTotalValue += s.value;
+                const pnl = s.value - s.invested;
+                const pnlColor = pnl >= 0 ? 'text-green-600' : 'text-red-600';
+
+                const stockItem = document.createElement('div');
+                stockItem.className = 'p-3 bg-gray-50 rounded-lg shadow-sm';
+                stockItem.innerHTML = `
+                    <div class="flex justify-between items-center mb-1">
+                        <p class="font-bold text-lg primary-text">${s.platform}</p>
+                        <button onclick="deleteStock('${s.id}')" class="text-red-400 hover:text-red-600" title="Delete Portfolio">&times;</button>
+                    </div>
+                    <div class="grid grid-cols-3 text-sm text-gray-700">
+                        <span>Invested: <span class="font-medium">${formatRupee(s.invested)}</span></span>
+                        <span>Value: <span class="font-medium">${formatRupee(s.value)}</span></span>
+                        <span>P&L: <span class="font-bold ${pnlColor}">${formatRupee(pnl)}</span></span>
+                    </div>
+                `;
+                stockListDiv.appendChild(stockItem);
+            });
+
+            // Update Summary
+            const totalPnL = currentTotalValue - totalInvested;
+            const pnlColor = totalPnL >= 0 ? 'text-green-600' : 'text-red-600';
+
+            document.getElementById('totalInvested').textContent = formatRupee(totalInvested);
+            document.getElementById('currentTotalValue').textContent = formatRupee(currentTotalValue);
+            document.getElementById('totalPnL').textContent = formatRupee(totalPnL);
+            document.getElementById('totalPnL').className = `font-bold block ${pnlColor}`;
+        }
+
+        /**
+         * Deletes a stock portfolio.
+         * @param {string} id
+         */
+        function deleteStock(id) {
+            appState.stocks = appState.stocks.filter(s => s.id !== id);
+            saveData();
+            renderAll();
+            showStatusMessage("Stock portfolio deleted.");
+        }
+
+        // Budget Logic
+
+        /**
+         * Handles setting the monthly net income.
+         * @param {Event} e
+         */
+        function handleIncomeBudgetForm(e) {
+            e.preventDefault();
+            appState.budget.monthlyNetIncome = parseFloat(document.getElementById('monthlyIncome').value) || 0;
+            saveData();
+            renderBudget();
+            showStatusMessage("Monthly Net Income set successfully!");
+        }
+
+        /**
+         * Handles setting a category budget limit.
+         * @param {Event} e
+         */
+        function handleBudgetLimitForm(e) {
+            e.preventDefault();
+            const category = document.getElementById('budgetCategory').value;
+            const limit = parseFloat(document.getElementById('budgetLimit').value);
+
+            if (category && limit >= 0) {
+                appState.budget.limits[category] = limit;
+                saveData();
+                renderBudget();
+                showStatusMessage(`Budget limit for "${category}" set to ${formatRupee(limit)}.`);
+            }
+            document.getElementById('budgetLimitForm').reset();
+        }
+
+        /**
+         * Renders the budget status and progress bars.
+         */
+        function renderBudget() {
+            const incomeDisplay = document.getElementById('totalMonthlyIncomeDisplay').querySelector('span');
+            incomeDisplay.textContent = formatRupee(appState.budget.monthlyNetIncome);
+            document.getElementById('monthlyIncome').value = appState.budget.monthlyNetIncome;
+
+            const progressContainer = document.getElementById('budgetProgressContainer');
+            progressContainer.innerHTML = ''; // Clear existing content
+
+            const limitKeys = Object.keys(appState.budget.limits);
+
+            if (limitKeys.length === 0) {
+                // If no budget limits are set, show the placeholder text
+                progressContainer.innerHTML = '<p class="text-gray-500 italic">No budget limits have been set yet.</p>';
+                return; // Exit the function
+            }
+
+            // Calculate current month's expenses by category
+            const currentMonth = new Date().toISOString().substring(0, 7);
+            const expensesByCat = appState.transactions
+                .filter(t => t.type === 'Expense' && t.date.startsWith(currentMonth))
+                .reduce((acc, t) => {
+                    acc[t.category] = (acc[t.category] || 0) + t.amount;
+                    return acc;
+                }, {});
+
+            limitKeys.forEach(category => {
+                const limit = appState.budget.limits[category];
+                const spent = expensesByCat[category] || 0;
+                const percentage = limit > 0 ? (spent / limit) * 100 : (spent > 0 ? 1000 : 0); // Handle 0 limit case
+                const progress = Math.min(percentage, 100);
+
+                let barColor = 'bg-green-500';
+                if (percentage >= 100) {
+                    barColor = 'bg-red-600'; // Over budget
+                } else if (percentage >= 80) {
+                    barColor = 'bg-yellow-500'; // Nearing limit
+                }
+
+                const progressBar = document.createElement('div');
+                progressBar.className = 'space-y-1';
+                progressBar.innerHTML = `
+                    <div class="flex justify-between text-sm">
+                        <span class="font-medium">${category} (Limit: ${formatRupee(limit)})</span>
+                        <span class="font-bold ${barColor.replace('bg-', 'text-')}">${formatRupee(spent)} spent</span>
+                        <button onclick="delete appState.budget.limits['${category}']; saveData(); renderBudget(); showStatusMessage('Budget limit removed.');" class="text-gray-400 hover:text-red-500 ml-2" title="Delete Limit">&times;</button>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2.5">
+                        <div class="h-2.5 rounded-full ${barColor}" style="width: ${progress}%"></div>
+                    </div>
+                    ${percentage > 100 ? `<p class="text-xs text-red-600 font-bold">EXCEEDED BUDGET by ${formatRupee(spent - limit)}</p>` : ''}
+                `;
+                progressContainer.appendChild(progressBar);
+            });
+        }
+
+        // Dashboard & Metrics Logic
+
+        /**
+         * Calculates and renders the main dashboard metrics.
+         */
+        function renderDashboard() {
+            let totalAssets = 0;
+            let totalLiabilities = 0; // For negative bank balances (e.g., credit card debt)
+
+            // Calculate Bank Assets/Liabilities
+            const totalBankBalance = appState.banks.reduce((sum, b) => {
+                if (b.balance >= 0) totalAssets += b.balance;
+                else totalLiabilities += Math.abs(b.balance);
+                return sum + b.balance;
+            }, 0);
+
+            // Calculate Stock Assets
+            const totalStockValue = appState.stocks.reduce((sum, s) => {
+                totalAssets += s.value;
+                return sum + s.value;
+            }, 0);
+
+            // Calculate Net Worth
+            const currentNetWorth = totalAssets - totalLiabilities;
+            const netWorthDisplay = document.getElementById('netWorthDisplay');
+            netWorthDisplay.textContent = formatRupee(currentNetWorth);
+
+            // Calculate Flow Metrics for the current month
+            const currentMonth = new Date().toISOString().substring(0, 7);
+            const currentMonthTransactions = appState.transactions.filter(t => t.date.startsWith(currentMonth));
+
+            const totalIncome = currentMonthTransactions
+                .filter(t => t.type === 'Income')
+                .reduce((sum, t) => sum + t.amount, 0);
+
+            const totalExpenses = currentMonthTransactions
+                .filter(t => t.type === 'Expense')
+                .reduce((sum, t) => sum + t.amount, 0);
+
+            const netFlow = totalIncome - totalExpenses;
+
+            // Render Summary Cards
+            const summaries = [
+                { title: "Total Income (Mo)", value: totalIncome, color: 'text-green-600' },
+                { title: "Total Expenses (Mo)", value: totalExpenses, color: 'text-red-600' },
+                { title: "Net Flow (Mo)", value: netFlow, color: netFlow >= 0 ? 'text-green-600' : 'text-red-600' },
+                { title: "Total Bank Balance", value: totalBankBalance, color: 'text-indigo-600' },
+                { title: "Total Stock Value", value: totalStockValue, color: 'text-purple-600' }
+            ];
+
+            const summaryCardsDiv = document.getElementById('summaryCards');
+            summaryCardsDiv.innerHTML = summaries.map(s => `
+                <div class="card border-l-4 primary-border p-3">
+                    <p class="text-sm text-gray-500">${s.title}</p>
+                    <p class="text-xl font-bold mt-1 ${s.color}">${formatRupee(s.value)}</p>
+                </div>
+            `).join('');
+
+            // Update Charts
+            updateExpensesChart();
+            updateStocksChart();
+        }
+
+        // Chart.js Functions
+
+        const CHART_COLORS = [
+            '#3F51B5', '#FF9800', '#4CAF50', '#F44336', '#9C27B0',
+            '#00BCD4', '#FFEB3B', '#8BC34A', '#795548', '#E91E63',
+            '#607D8B', '#03A9F4'
+        ];
+
+        /**
+         * Renders/updates the Expenses by Category Chart.
+         */
+        function updateExpensesChart() {
+            const currentMonth = new Date().toISOString().substring(0, 7);
+            const expensesByCat = appState.transactions
+                .filter(t => t.type === 'Expense' && t.date.startsWith(currentMonth))
+                .reduce((acc, t) => {
+                    acc[t.category] = (acc[t.category] || 0) + t.amount;
+                    return acc;
+                }, {});
+
+            const labels = Object.keys(expensesByCat);
+            const data = Object.values(expensesByCat);
+
+            if (expensesChart) {
+                expensesChart.data.labels = labels;
+                expensesChart.data.datasets[0].data = data;
+                expensesChart.update();
+                return;
+            }
+
+            const ctx = document.getElementById('expensesChart').getContext('2d');
+            expensesChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Expense Amount (₹)',
+                        data: data,
+                        backgroundColor: CHART_COLORS,
+                        hoverOffset: 10
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' },
+                        title: { display: false }
+                    }
+                }
+            });
+        }
+
+        /**
+         * Renders/updates the Stock Portfolio Composition Chart.
+         */
+        function updateStocksChart() {
+            const labels = appState.stocks.map(s => s.platform);
+            const data = appState.stocks.map(s => s.value); // Based on current value
+
+            if (stocksChart) {
+                stocksChart.data.labels = labels;
+                stocksChart.data.datasets[0].data = data;
+                stocksChart.update();
+                return;
+            }
+
+            const ctx = document.getElementById('stocksChart').getContext('2d');
+            stocksChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Current Value (₹)',
+                        data: data,
+                        backgroundColor: CHART_COLORS,
+                        hoverOffset: 10
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' },
+                        title: { display: false }
+                    }
+                }
+            });
+        }
+
+        // Global Render and Initialization
+
+        /**
+         * Calls all render functions to update the UI.
+         */
+        function renderAll() {
+            try {
+                renderCategories();
+                renderTransactions();
+                renderDashboard();
+                renderBudget();
+                renderBanks();
+                renderStocks();
+                saveData();
+            } catch (e) {
+                console.error("An error occurred during rendering. This may be why data is not appearing:", e);
+                showStatusMessage("A critical error occurred while updating the display. Check console.", true);
+            }
+        }
+
+        // Clear Data Functionality
+
+        /**
+         * Clears all data in localStorage and resets the application state.
+         */
+        function clearAllData() {
+            localStorage.removeItem(APP_ID);
+            appState = {
+                categories: [],
+                transactions: [],
+                banks: [],
+                stocks: [],
+                budget: {
+                    monthlyNetIncome: 0,
+                    limits: {}
+                }
+            };
+            initializeDefaultCategories(); // Reset to defaults
+            renderAll();
+            document.getElementById('confirmationModal').classList.add('hidden');
+            showStatusMessage("All data has been cleared and reset to default categories.");
+        }
+
+        // Event Listeners and Initial Load
+        window.onload = function() {
+            // Set default date for transaction form
+            document.getElementById('transDate').value = new Date().toISOString().substring(0, 10);
+
+            // Load data and render initial UI
+            loadData();
+
+            // Set up form handlers
+            document.getElementById('categoryForm').addEventListener('submit', handleCategoryForm);
+            document.getElementById('transactionForm').addEventListener('submit', handleTransactionForm);
+            document.getElementById('bankForm').addEventListener('submit', handleBankForm);
+            document.getElementById('stockForm').addEventListener('submit', handleStockForm);
+            document.getElementById('incomeBudgetForm').addEventListener('submit', handleIncomeBudgetForm);
+            document.getElementById('budgetLimitForm').addEventListener('submit', handleBudgetLimitForm);
+
+            // Set up Clear Data Modal
+            const modal = document.getElementById('confirmationModal');
+            document.getElementById('clearDataBtn').addEventListener('click', () => {
+                modal.classList.remove('hidden');
+            });
+            document.getElementById('cancelClearBtn').addEventListener('click', () => {
+                modal.classList.add('hidden');
+            });
+            document.getElementById('confirmClearBtn').addEventListener('click', clearAllData);
+        };
+    </script>
+
 </body>
 </html>
